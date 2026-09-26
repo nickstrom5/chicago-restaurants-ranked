@@ -1,0 +1,27 @@
+{
+  "name": "Chicago Restaurant Inspections",
+  "short_name": "Chi Inspect",
+  "description": "A\u2013F health grades for Chicago restaurants, built from City of Chicago inspection records.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "browser",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0E3386",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

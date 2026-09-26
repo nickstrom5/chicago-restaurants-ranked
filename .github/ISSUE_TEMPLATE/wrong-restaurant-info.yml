@@ -1,0 +1,29 @@
+name: Wrong restaurant information
+description: A place is matched to the wrong records, or its name, address or other details are wrong.
+title: "[Data] "
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the data right. Issues are **public**, so please don't include personal information.
+        Inspection results come from the City of Chicago and the app shows what the City published; we fix records matched to the wrong business, and wrong names or addresses, in the next update.
+  - type: input
+    id: name
+    attributes:
+      label: Restaurant name
+    validations:
+      required: true
+  - type: input
+    id: address
+    attributes:
+      label: Street address (and neighborhood or town)
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What's wrong?
+      description: What the app shows, and what it should show. A link to a source (for example the City's record) helps.
+    validations:
+      required: true

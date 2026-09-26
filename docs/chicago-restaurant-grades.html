@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chicago Restaurant Grades A–F Explained | Chi Inspect</title>
+<meta name="description" content="How the Chicago Restaurant Inspections app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.">
+<link rel="canonical" href="https://nickstrom5.github.io/chicago-restaurant-inspections/chicago-restaurant-grades.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#0E3386">
+<meta property="og:title" content="Chicago Restaurant Grades A–F Explained | Chi Inspect">
+<meta property="og:description" content="How the Chicago Restaurant Inspections app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.">
+<meta property="og:url" content="https://nickstrom5.github.io/chicago-restaurant-inspections/chicago-restaurant-grades.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Chicago Restaurant Inspections">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://nickstrom5.github.io/chicago-restaurant-inspections/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Chicago Restaurant Inspections app icon, a blue letter A with a red Chicago star, beside the words: Health grades for every Chicago restaurant. Free for iPhone and iPad, no ads, no account.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Chicago Restaurant Grades A–F Explained | Chi Inspect">
+<meta name="twitter:description" content="How the Chicago Restaurant Inspections app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.">
+<meta name="twitter:image" content="https://nickstrom5.github.io/chicago-restaurant-inspections/og.png">
+<meta name="twitter:image:alt" content="Chicago Restaurant Inspections app icon, a blue letter A with a red Chicago star, beside the words: Health grades for every Chicago restaurant. Free for iPhone and iPad, no ads, no account.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+<style>
+  @font-face { font-family: "Big Shoulders Display"; font-weight: 700 900; font-display: swap; src: local("Big Shoulders Display"), local("BigShouldersDisplay-Black"), local("BigShouldersDisplay-ExtraBold"); }
+  :root {
+    --blue: #0E3386; --red: #CC3433; --red-ink: #B42B2A; --ink: #0B1D45; --ink2: #2B3C63; --muted: #52638A;
+    --sky: #F1F5FC; --sky2: #E3EAF7; --rule: #DAE2F0; --white: #fff;
+    --display: "Big Shoulders Display", "Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --body: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  body { margin: 0; background: var(--white); color: var(--ink); font: 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+  img { max-width: 100%; height: auto; }
+  a { color: var(--blue); text-underline-offset: .15em; }
+  a:hover { color: var(--red-ink); }
+  :focus-visible { outline: 3px solid var(--red); outline-offset: 3px; border-radius: 6px; }
+  .skip { position: absolute; left: -9999px; top: 0; z-index: 10; background: var(--blue); color: #fff; padding: 10px 14px; border-radius: 0 0 10px 0; font-weight: 700; }
+  .skip:focus { left: 0; color: #fff; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  .narrow { max-width: 740px; }
+  h1, h2, .display { font-family: var(--display); font-stretch: condensed; font-weight: 800; letter-spacing: -.005em; color: var(--ink); }
+  h1 { font-size: clamp(40px, 7.4vw, 72px); line-height: .98; margin: 0 0 20px; }
+  h2 { font-size: clamp(30px, 4.6vw, 42px); line-height: 1.04; margin: 0 0 10px; }
+  h3 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; font-weight: 700; }
+  p { margin: 0 0 16px; }
+  /* header */
+  header.site { border-bottom: 4px solid var(--red); background: var(--white); }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 6px 20px; min-height: 68px; flex-wrap: wrap; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-family: var(--display); font-stretch: condensed; font-weight: 800; font-size: 21px; line-height: 1.05; text-transform: uppercase; letter-spacing: .01em; min-height: 44px; }
+  .logo:hover { color: var(--blue); }
+  .logo img { width: 32px; height: 32px; flex: 0 0 32px; }
+  .logo b { color: var(--blue); font-weight: 800; }
+  header.site nav { display: flex; flex-wrap: wrap; gap: 0 22px; }
+  header.site nav a { color: var(--ink2); text-decoration: none; font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; min-height: 44px; }
+  header.site nav a:hover { color: var(--red-ink); text-decoration: underline; }
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 10px; background: var(--blue); color: #fff; font-weight: 700; padding: 14px 22px; border-radius: 14px; text-decoration: none; font-size: 17px; min-height: 48px; max-width: 100%; }
+  .btn:hover { background: var(--ink); color: #fff; }
+  .btn svg { width: 22px; height: 22px; flex: 0 0 22px; }
+  .btn.alt { background: var(--white); color: var(--blue); }
+  .btn.alt:hover { background: var(--sky); color: var(--ink); }
+  /* grade chips */
+  .g { display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: .36em; font-family: var(--display); font-stretch: condensed; font-weight: 800; line-height: 1; }
+  .gA { background: #12733A; color: #fff; } .gB { background: #4B7A1B; color: #fff; } .gC { background: #F2B01E; color: #2B1D00; }
+  .gD { background: #E8804F; color: #2B1000; } .gF { background: #C1302F; color: #fff; }
+  /* footer */
+  footer.site { margin-top: 0; background: var(--ink); color: #DCE5F7; font-size: 14px; padding: 44px 0 56px; }
+  footer.site a { color: #fff; }
+  footer.site a:hover { color: #DCE5F7; }
+  footer.site :focus-visible { outline-color: #fff; }
+  footer.site nav { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-bottom: 18px; }
+  footer.site nav a { display: inline-flex; align-items: center; min-height: 36px; }
+  footer.site .fine { color: #C9D4EC; max-width: 820px; margin: 0 0 10px; line-height: 1.55; }
+  @media (max-width: 640px) {
+    .bar { padding-top: 8px; padding-bottom: 4px; }
+    header.site nav { width: 100%; gap: 0 14px; }
+    header.site nav a { font-size: 14.5px; }
+    .logo { font-size: 17px; gap: 8px; }
+    .logo img { width: 28px; height: 28px; flex-basis: 28px; }
+  }
+
+  main { padding: 8px 0 64px; }
+  .crumbs { font-size: 14px; color: var(--muted); margin: 26px 0 0; }
+  .crumbs a { color: var(--muted); }
+  .doc h1 { font-size: clamp(38px, 6.4vw, 56px); margin: 14px 0 18px; }
+  .doc .lede { font-size: 20px; color: var(--ink2); margin: 0 0 12px; }
+  .doc .updated { font-size: 14px; color: var(--muted); }
+  .doc h2 { font-size: clamp(28px, 4.2vw, 36px); margin: 40px 0 10px; }
+  .doc h3 { margin: 24px 0 6px; }
+  .doc p, .doc li { color: var(--ink2); }
+  .doc li { margin-bottom: 8px; }
+  .doc strong { color: var(--ink); }
+  .doc table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: 16px; }
+  .doc caption { text-align: left; font-size: 14px; color: var(--muted); padding-bottom: 6px; }
+  .doc th, .doc td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--rule); color: var(--ink2); }
+  .doc th { color: var(--ink); background: var(--sky); font-weight: 700; }
+  .doc td .g { font-size: 20px; }
+  .tablewrap { overflow-x: auto; }
+  .box { background: var(--sky); border-left: 5px solid var(--blue); border-radius: 0 14px 14px 0; padding: 18px 20px; margin: 24px 0; }
+  .box p:last-child { margin-bottom: 0; }
+  .box.red { border-left-color: var(--red); }
+  .cta { background: var(--blue); color: #fff; border-radius: var(--radius); padding: 26px; margin: 36px 0 0; }
+  .cta h2 { color: #fff; margin-top: 0; font-size: 30px; }
+  .cta p { color: #DCE5F7; }
+  .cta a:not(.btn) { color: #fff; }
+  .cta :focus-visible { outline-color: #fff; }
+  .srcs { font-size: 15px; }
+  .srcs li { margin-bottom: 10px; }
+  .qa h2 { font-family: var(--body); font-stretch: normal; font-size: 21px; font-weight: 700; line-height: 1.3; margin: 34px 0 8px; letter-spacing: 0; }
+  .btn-row { margin: 22px 0 20px; }
+  .nf { padding-top: 40px; }
+  @media (max-width: 640px) { .doc table { font-size: 15px; } .doc th, .doc td { padding: 9px 8px; } }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "What our A–F Chicago restaurant grades mean",
+  "description": "How the Chicago Restaurant Inspections app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://nickstrom5.github.io/chicago-restaurant-inspections/og.png",
+    "width": 1200,
+    "height": 630
+  },
+  "datePublished": "2026-09-26",
+  "dateModified": "2026-09-26",
+  "inLanguage": "en",
+  "author": {
+    "@type": "Person",
+    "name": "Nicholas Soderstrom",
+    "url": "https://nickstrom5.github.io/chicago-restaurant-inspections/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "@id": "https://nickstrom5.github.io/chicago-restaurant-inspections/#org",
+    "name": "Chicago Restaurant Inspections",
+    "url": "https://nickstrom5.github.io/chicago-restaurant-inspections/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://nickstrom5.github.io/chicago-restaurant-inspections/icon-512.png",
+      "width": 512,
+      "height": 512
+    }
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://nickstrom5.github.io/chicago-restaurant-inspections/chicago-restaurant-grades.html"
+  },
+  "isPartOf": {
+    "@id": "https://nickstrom5.github.io/chicago-restaurant-inspections/#website"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Chicago Restaurant Inspections",
+      "item": "https://nickstrom5.github.io/chicago-restaurant-inspections/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "What the A–F grades mean",
+      "item": "https://nickstrom5.github.io/chicago-restaurant-inspections/chicago-restaurant-grades.html"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap bar">
+    <a class="logo" href="./" aria-label="Chicago Restaurant Inspections home"><img src="favicon.svg" width="32" height="32" alt="Chi Inspect app icon" decoding="async"><span>Chicago Restaurant <b>Inspections</b></span></a>
+    <nav aria-label="Primary">
+      <a href="./#how">How it works</a>
+      <a href="chicago-restaurant-grades.html">Grades</a>
+      <a href="look-up-chicago-restaurant-inspections.html">Look up a place</a>
+      <a href="./#faq">FAQ</a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+  <div class="wrap narrow doc">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="./">Chicago Restaurant Inspections</a> › What the A–F grades mean</nav>
+    <article>
+      <h1>What our A–F Chicago restaurant grades mean</h1>
+      <p class="lede">Chicago’s inspection records don’t come with a letter grade. Chicago Restaurant Inspections adds one: a 0–100 score and an A–F grade calculated from the City’s records. Here is exactly how, and what a grade can’t tell you.</p>
+      <p class="updated">Updated 26 September 2026</p>
+
+      <div class="box red"><p><strong>This is our grade, not the City’s.</strong> The City of Chicago records each inspection as pass, pass with conditions or fail (<a href="how-chicago-restaurant-inspections-work.html">what those mean</a>). The score and letter are calculated by this app from those public records, the same way for every place. They are not issued or endorsed by the City of Chicago or its Department of Public Health.</p></div>
+
+      <h2>Which inspections count</h2>
+      <p>Every inspection since January 1, 2023 that ended in pass, pass with conditions or fail. Visits recorded as Out of Business, No Entry, Not Ready or Business Not Located don’t count, because nothing was graded.</p>
+
+      <h2>What lowers the score</h2>
+      <p>Each place starts at 100. Points come off for six things in its record:</p>
+      <div class="tablewrap"><table>
+        <caption>Deductions from the 100-point score</caption>
+        <thead><tr><th scope="col">Factor</th><th scope="col">How it is measured</th><th scope="col">Most points off</th></tr></thead>
+        <tbody>
+          <tr><td>Failed inspections</td><td>Share of inspections that failed</td><td>40</td></tr>
+          <tr><td>All violations</td><td>3 points per violation per visit, on average, counting up to 10</td><td>30</td></tr>
+          <tr><td>Pest citations</td><td>Share of inspections citing item 38, “Insects, rodents, &amp; animals not present”</td><td>25</td></tr>
+          <tr><td>Serious food-safety violations</td><td>8 points per violation per visit from items 1 to 29 on the City’s report, on average, counting up to 3</td><td>24</td></tr>
+          <tr><td>Last visit failed</td><td>The most recent inspection was a fail</td><td>8</td></tr>
+          <tr><td>Passes with conditions</td><td>Share of inspections that passed with conditions</td><td>6</td></tr>
+        </tbody>
+      </table></div>
+      <p>Items 1 to 29 on the City’s current report cover things like a certified food manager on site, handwashing, safe food sources, cooking and holding temperatures, date marking and toxic chemicals. The score can’t go below 0.</p>
+
+      <h2>Few inspections? Pulled toward the average</h2>
+      <p>A place with one or two inspections can look perfect or terrible by luck. So each score is blended with the city average, as if every place also had two average inspections: <strong>(inspections × its own score + 2 × city average) ÷ (inspections + 2)</strong>. With one inspection, a place’s own record is a third of its score. With ten, it is five-sixths.</p>
+
+      <h2>From score to letter</h2>
+      <div class="tablewrap"><table>
+        <caption>Grade cutoffs</caption>
+        <thead><tr><th scope="col">Grade</th><th scope="col">Score</th><th scope="col">Extra rule</th></tr></thead>
+        <tbody>
+          <tr><td><span class="g gA" role="img" aria-label="A">A</span></td><td>75–100</td><td>No failed inspections since 2023; otherwise B at best</td></tr>
+          <tr><td><span class="g gB" role="img" aria-label="B">B</span></td><td>66–74</td><td></td></tr>
+          <tr><td><span class="g gC" role="img" aria-label="C">C</span></td><td>57–65</td><td></td></tr>
+          <tr><td><span class="g gD" role="img" aria-label="D">D</span></td><td>47–56</td><td></td></tr>
+          <tr><td><span class="g gF" role="img" aria-label="F">F</span></td><td>0–46</td><td>At least one failed inspection or pest citation; otherwise D</td></tr>
+        </tbody>
+      </table></div>
+      <p>A place with no qualifying inspection since January 2023 gets no grade. The Cleanest and Worst inspections boards include only places with at least two inspections, so a single visit can’t put a place at the top or the bottom.</p>
+
+      <h2>What a grade can’t tell you</h2>
+      <ul>
+        <li><strong>It is a summary of the past.</strong> Inspections are snapshots of what the inspector found on the day. A grade is not a prediction and not a food safety certificate.</li>
+        <li><strong>It says nothing about taste, price or service.</strong> It only reflects inspection records.</li>
+        <li><strong>Each location stands alone.</strong> Two branches of the same chain can have very different grades.</li>
+        <li><strong>It changes as records change.</strong> A new passing inspection lifts a score once it is in the City’s data and in an app update.</li>
+      </ul>
+      <p>To check the underlying records, every place page in the app links to the City’s official inspection records, or you can <a href="look-up-chicago-restaurant-inspections.html">look a place up on the City’s data portal</a> yourself. If a place is matched to the wrong records, please <a href="https://github.com/nickstrom5/chicago-restaurant-inspections/issues/new" rel="noopener">open an issue on GitHub</a>.</p>
+      <div class="cta">
+        <h2>See every grade on a map</h2>
+        <p>Chicago Restaurant Inspections is a free iPhone and iPad app with an A–F grade for 7,982 Chicago restaurants, rankings from cleanest to worst, and a map with grade-colored pins. No ads, no account.</p>
+        <p class="btn-row"><a class="btn alt" href="./">See how the app works</a></p>
+      </div>
+    </article>
+  </div>
+</main>
+<footer class="site">
+  <div class="wrap">
+    <nav aria-label="Footer">
+      <a href="./">Chicago Restaurant Inspections home</a>
+      <a href="how-chicago-restaurant-inspections-work.html">How Chicago restaurant inspections work</a>
+      <a href="look-up-chicago-restaurant-inspections.html">Look up a Chicago restaurant inspection</a>
+      <a href="chicago-restaurant-grades.html">What the A–F grades mean</a>
+      <a href="support.html">Help &amp; support</a>
+      <a href="privacy.html">Privacy policy</a>
+      <a href="terms.html">Terms of use</a>
+      <a href="https://github.com/nickstrom5/chicago-restaurant-inspections/issues" rel="noopener">Report a problem on GitHub</a>
+    </nav>
+    <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
+    <p class="fine">Inspection and license records: City of Chicago Data Portal. Property values: Cook County Assessor's Office. Restaurant websites and places outside Chicago: Overture Maps Foundation (CDLA Permissive 2.0, Apache 2.0, CC0).</p>
+    <p class="fine">© 2026 Nicholas Soderstrom. Made in Chicago.</p>
+  </div>
+</footer>
+</body>
+</html>

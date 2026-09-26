@@ -1,0 +1,22 @@
+name: Bug or idea
+description: Something in the app doesn't work, or you'd like it to do something new.
+labels: ["app"]
+body:
+  - type: markdown
+    attributes:
+      value: Issues are **public**, so please don't include personal information.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, or what would you like?
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and iOS version
+      placeholder: e.g. iPhone 16, iOS 26.0
+  - type: input
+    id: version
+    attributes:
+      label: App version (if you know it)
