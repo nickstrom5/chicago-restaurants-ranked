@@ -1,6 +1,6 @@
 {
-  "name": "Chicago Restaurant Inspections",
-  "short_name": "Chi Inspect",
+  "name": "Chicago Restaurants: Ranked",
+  "short_name": "Chi Ranked",
   "description": "A\u2013F health grades for Chicago restaurants, built from City of Chicago inspection records.",
   "start_url": "./",
   "scope": "./",

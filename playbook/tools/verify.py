@@ -1,13 +1,13 @@
 """SEO and link checks for docs/ (see playbook/01-site-runbook.md, "Verify before pushing").
-Serve docs/ under /chicago-restaurant-inspections/ first, then: python3 playbook/tools/verify.py
+Serve docs/ under /chicago-restaurants-ranked/ first, then: python3 playbook/tools/verify.py
 Exit code 1 if anything fails."""
 import json, re, sys, urllib.request, urllib.error, html
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 import os
-ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/chicago-restaurant-inspections/")
+ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/chicago-restaurants-ranked/")
 HOST = urlparse(ROOT).netloc
-BASE = "https://nickstrom5.github.io/chicago-restaurant-inspections/"
+BASE = "https://nickstrom5.github.io/chicago-restaurants-ranked/"
 PAGES = ["", "how-chicago-restaurant-inspections-work.html", "look-up-chicago-restaurant-inspections.html",
          "chicago-restaurant-grades.html", "support.html", "privacy.html", "terms.html", "404.html"]
 problems = []
@@ -60,6 +60,8 @@ for page in PAGES:
     url = ROOT + page; st, body = get(url); print(f"\n== {page or 'index.html'} [{st}] {len(body)} bytes")
     if st != 200: bad(page, "status", st); continue
     src = body.decode("utf-8"); p = P(); p.feed(src)
+    for word in ("Worst inspections", "Recently failed", "worst boards", "Chi Inspect"):   # old or non-neutral names (app Board.swift titles rule)
+        if word.lower() in src.lower(): bad(page, "uses banned wording", repr(word))
     if '<html lang="en">' not in src: bad(page, "lang")
     h1 = p.heads.count("h1")
     if h1 != 1: bad(page, "h1 count", h1)

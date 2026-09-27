@@ -1,29 +1,29 @@
-# Site runbook: Chicago Restaurant Inspections
+# Site runbook: Chicago Restaurants: Ranked
 
 Internal notes. This folder is **not** published; only `docs/` is.
 
-- Site: https://nickstrom5.github.io/chicago-restaurant-inspections/ (GitHub Pages from `docs/` on `main`, no custom domain, no CNAME)
-- Repo: https://github.com/nickstrom5/chicago-restaurant-inspections (public; GitHub Issues is the support channel, no support email yet)
+- Site: https://nickstrom5.github.io/chicago-restaurants-ranked/ (GitHub Pages from `docs/` on `main`, no custom domain, no CNAME)
+- Repo: https://github.com/nickstrom5/chicago-restaurants-ranked (public; GitHub Issues is the support channel, no support email yet)
 - Static HTML, inline CSS, no build step, no third-party scripts, fonts or tracking. `docs/*.html` is the source of truth.
 
 ## 1. Publish
 
-1. On GitHub, create the **public** repo `nickstrom5/chicago-restaurant-inspections` (no README, it already has one).
-2. `git remote add origin git@github.com:nickstrom5/chicago-restaurant-inspections.git && git push -u origin main`
+1. On GitHub, create the **public** repo `nickstrom5/chicago-restaurants-ranked` (no README, it already has one).
+2. `git remote add origin git@github.com:nickstrom5/chicago-restaurants-ranked.git && git push -u origin main`
 3. Repo → Settings → Pages → Build and deployment → Source: **Deploy from a branch** → Branch `main`, folder `/docs` → Save.
 4. Wait for the Pages build (Actions tab), then open the site URL. HTTPS is on by default for github.io.
 5. Repo → Settings → General → Features: make sure **Issues** is on. The issue forms in `.github/ISSUE_TEMPLATE/` show up automatically.
-6. Open https://nickstrom5.github.io/chicago-restaurant-inspections/does-not-exist and check the 404 page is styled and its links work.
+6. Open https://nickstrom5.github.io/chicago-restaurants-ranked/does-not-exist and check the 404 page is styled and its links work.
 
 ### What's different because there is no custom domain
 
 - **robots.txt is not read.** Crawlers only read `robots.txt` at the host root (`nickstrom5.github.io/robots.txt`), not at
-  `/chicago-restaurant-inspections/robots.txt`. The file is there for completeness, but submit the sitemap directly in
+  `/chicago-restaurants-ranked/robots.txt`. The file is there for completeness, but submit the sitemap directly in
   Search Console and Bing (below). With no root robots.txt, everything is crawlable, which is what we want.
-- **404.html uses root-absolute links** (`/chicago-restaurant-inspections/...`) because GitHub serves it for any missing
+- **404.html uses root-absolute links** (`/chicago-restaurants-ranked/...`) because GitHub serves it for any missing
   path, at any depth. Every other page uses relative links. If the repo is renamed, fix the prefix in `404.html`.
 - **Search Console needs a URL-prefix property.** A Domain property is impossible, since github.io isn't ours.
-- **Moving to a custom domain later:** add `docs/CNAME`, then replace `https://nickstrom5.github.io/chicago-restaurant-inspections/`
+- **Moving to a custom domain later:** add `docs/CNAME`, then replace `https://nickstrom5.github.io/chicago-restaurants-ranked/`
   everywhere (canonical, og:url, og:image, twitter:image, JSON-LD, sitemap.xml, robots.txt) and change the 404 prefix to `/`.
   GitHub redirects the old github.io URLs to the custom domain on its own. Add the new domain as a property in Search Console.
 
@@ -32,10 +32,10 @@ Internal notes. This folder is **not** published; only `docs/` is.
 Do these once the site is live.
 
 - **Google Search Console** (search.google.com/search-console): Add property → **URL prefix** →
-  `https://nickstrom5.github.io/chicago-restaurant-inspections/`. Verify with the **HTML tag** method: paste the
+  `https://nickstrom5.github.io/chicago-restaurants-ranked/`. Verify with the **HTML tag** method: paste the
   `<meta name="google-site-verification" content="...">` line into `<head>` of `docs/index.html` (next to the Smart App
   Banner comment), commit, push, wait for Pages, click Verify. (The HTML-file method also works: put the `googleXXXX.html`
-  file in `docs/`.) Then Sitemaps → submit `https://nickstrom5.github.io/chicago-restaurant-inspections/sitemap.xml`.
+  file in `docs/`.) Then Sitemaps → submit `https://nickstrom5.github.io/chicago-restaurants-ranked/sitemap.xml`.
 - **Request indexing:** URL Inspection → paste the home page URL → Request indexing. Repeat for the three guides:
   `how-chicago-restaurant-inspections-work.html`, `look-up-chicago-restaurant-inspections.html`, `chicago-restaurant-grades.html`.
 - **Bing Webmaster Tools** (bing.com/webmasters): "Import from Google Search Console" is the quickest. Otherwise add the
@@ -63,8 +63,7 @@ Rules for anyone editing `docs/`.
 - **Data date.** "September 21, 2026" / "Sep 21" appears in `index.html` (hero stat, sources, FAQ answer and its JSON-LD),
   `support.html` (answer and JSON-LD) and `look-up-chicago-restaurant-inspections.html`. When an app update ships newer
   data, change them all (`grep -rn "September 21, 2026\|Sep 21" docs/`) and bump the sitemap `lastmod`.
-- **Counts** (8,526 places, 7,982 restaurants, 17,684 restaurants in 948 other Illinois towns, about 25 published sales
-  figures, "about 7 in 10" Overture listings matched) come from `chi-eats/ios/ChiInspect/Resources/chicago.json` and
+- **Counts** (8,363 places, 7,828 restaurants, 17,602 restaurants in 927 other Illinois towns, about two dozen published sales; regenerate from ios/ChiRanked/Resources/*.json meta after every export) come from `chi-eats/ios/ChiInspect/Resources/chicago.json` and
   `illinois.json` (`meta`), `curated.json`, and the 70.7% calibration in `chi-eats/pipeline/illinois.py`. Update together.
 - **FAQ = JSON-LD.** The visible FAQ and the `FAQPage` JSON-LD must match word for word, on both `index.html` and
   `support.html`. `playbook/tools/verify.py` checks this.
@@ -85,8 +84,16 @@ Rules for anyone editing `docs/`.
     If the data gains them, add them to the copy.
   - Not "all 77 community areas". The data covers 76 (Burnside has no licensed places).
   - Not "every restaurant has a grade". 7,757 of 7,982 restaurants do (97%), so the lede says "nearly every". The
-    brand agent's `og.png` says "Health grades for every Chicago restaurant"; consider changing it to "nearly every".
+    `og.png` now says "Our health grades for nearly every Chicago restaurant" (re-rendered in the cross-check). The
+    same string must be changed on the `pitch` line of `chi-eats/ios/scripts/make-brand.swift`, or re-running that
+    script puts "every" back.
   - No star ratings, reviews or price levels, anywhere. The app doesn't carry them.
+- **Footer disclaimer.** Every page's footer carries the City of Chicago data disclaimer **word for word** (the City's
+  Data Terms of Use require it wherever an app built on its data can be downloaded) and the independence line. Never
+  paraphrase or drop it; new pages copy the footer as is.
+- **No negative lists in marketing.** No Worst inspections / Recently failed / Pest citations board, and no D or F place,
+  in screenshots, `og.png`, page titles or meta descriptions (app-review-risk.md L5, S6). Describe those boards
+  neutrally in body copy ("lowest inspection scores", "failed latest inspection").
 - **Legal pages** (`privacy.html`, `terms.html`) were drafted, not reviewed by a lawyer. Keep them in step with the app:
   if the app ever adds analytics, crash reporting, an account, a network data refresh or anything that collects data,
   update `privacy.html` and the App Store privacy label **before** that version ships.
@@ -95,7 +102,7 @@ Rules for anyone editing `docs/`.
 
 ```bash
 # serve docs/ under the same path GitHub Pages uses
-mkdir -p /tmp/cri-serve && ln -sfn "$PWD/docs" /tmp/cri-serve/chicago-restaurant-inspections
+mkdir -p /tmp/cri-serve && ln -sfn "$PWD/docs" /tmp/cri-serve/chicago-restaurants-ranked
 (cd /tmp/cri-serve && python3 -m http.server 8791 --bind 127.0.0.1) &
 python3 playbook/tools/verify.py            # 200s, links, assets, anchors, JSON-LD, one h1, heading order,
                                             # title 50–60 / description 140–160, canonical = og:url = sitemap,

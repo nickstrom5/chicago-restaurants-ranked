@@ -1,10 +1,10 @@
-# Chicago Restaurant Inspections
+# Chicago Restaurants: Ranked
 
-A free iPhone and iPad app ("Chi Inspect" on your home screen) that turns the City of Chicago's food inspection records
+A free iPhone and iPad app ("Chi Ranked" on your home screen) that turns the City of Chicago's food inspection records
 into a 0–100 score and an A–F grade for Chicago restaurants, with rankings, a map, search and saved places.
 
-- Website: https://nickstrom5.github.io/chicago-restaurant-inspections/
-- How the grades are calculated: https://nickstrom5.github.io/chicago-restaurant-inspections/chicago-restaurant-grades.html
+- Website: https://nickstrom5.github.io/chicago-restaurants-ranked/
+- How the grades are calculated: https://nickstrom5.github.io/chicago-restaurants-ranked/chicago-restaurant-grades.html
 - Privacy: the app collects no data. No account, no analytics, no ads. Location is optional and stays on your device.
 
 The grade is calculated by the app from public records. It is not an official City of Chicago grade, and this project is
@@ -12,7 +12,7 @@ not affiliated with the City of Chicago, Cook County, the Michelin Guide or the 
 
 ## Support
 
-Open an issue: https://github.com/nickstrom5/chicago-restaurant-inspections/issues
+Open an issue: https://github.com/nickstrom5/chicago-restaurants-ranked/issues
 
 Issues are public, so please don't include personal information. For a restaurant that looks wrong, include its name,
 address and what's wrong. Inspection results come from the City of Chicago; we fix records that are matched to the wrong

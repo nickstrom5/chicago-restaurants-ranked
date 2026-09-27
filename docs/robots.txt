@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nickstrom5.github.io/chicago-restaurant-inspections/sitemap.xml
+Sitemap: https://nickstrom5.github.io/chicago-restaurants-ranked/sitemap.xml

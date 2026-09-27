@@ -3,7 +3,7 @@ Usage: python playbook/tools/shoot.py OUTPUT_DIR   (needs Playwright + Chrome)""
 import sys
 from playwright.sync_api import sync_playwright
 import os
-ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/chicago-restaurant-inspections/")
+ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/chicago-restaurants-ranked/")
 PAGES = ["", "how-chicago-restaurant-inspections-work.html", "look-up-chicago-restaurant-inspections.html",
          "chicago-restaurant-grades.html", "support.html", "privacy.html", "terms.html", "404.html"]
 OUT = sys.argv[1]

@@ -10,18 +10,27 @@ so it describes what's actually on screen.
 | `docs/screenshots/iphone-1.png` | 1320 × 2868 | Rankings, **Cleanest** board, whole city | Rankings: the cleanest places in Chicago, top to bottom. |
 | `docs/screenshots/iphone-2.png` | 1320 × 2868 | **Map** with grade-colored pins, "near me" button visible | Map: pins colored by grade, and what's near you. |
 | `docs/screenshots/iphone-3.png` | 1320 × 2868 | **Place detail** for a well-known place: grade, score, inspections, last visit, licenses | Place page: grade, inspections, licenses and honors. |
-| `docs/screenshots/iphone-4.png` | 1320 × 2868 | **Recently failed** board (or Pest citations) | Bottom boards: recently failed and pest citations. |
+| `docs/screenshots/iphone-4.png` | 1320 × 2868 | **Michelin & James Beard** board (no D or F chip visible) | Honors: Michelin and James Beard winners. |
 | `docs/screenshots/iphone-5.png` | 1320 × 2868 | **Search** with the filters sheet open | Search and filters: neighborhood, cuisine, grade and more. |
-| `docs/screenshots/ipad-1.png` | 2064 × 2752 | iPad, portrait: list and map | On iPad: more of the list and the map at once. |
+| `docs/screenshots/ipad-1.png` | 2064 × 2752 | iPad, portrait: Cleanest list with an A-grade place open in the detail column (the app's iPad layout is list + place page, not list + map) | On iPad: the list and the full record side by side. |
 
 Current alt text (from `docs/index.html`):
 
-1. Chicago Restaurant Inspections rankings screen listing the cleanest Chicago restaurants, each with an A–F grade chip, a 0–100 inspection score and its neighborhood
+1. Chicago Restaurants: Ranked rankings screen listing the cleanest Chicago restaurants, each with an A–F grade chip, a 0–100 inspection score and its neighborhood
 2. Map of Chicago with restaurant pins colored by inspection grade, from green A to red F, and a button to show places near you
 3. Restaurant detail screen showing the letter grade and score, inspections since 2023, failed inspections, pest citations, the last visit date and result, and license details
-4. Recently failed board listing Chicago restaurants whose most recent city inspection was a fail, with the inspection date and grade for each
+4. Michelin and James Beard board listing Chicago restaurants with Michelin Guide Chicago 2025 stars and James Beard awards, each with its A–F grade chip
 5. Search screen with filters for side of the city, neighborhood, cuisine, grade, alcohol, dining room and hiding chains
-6. iPad screen of Chicago Restaurant Inspections showing a long list of Chicago restaurants with their grades alongside a map of the city
+6. iPad screen of Chicago Restaurants: Ranked with the Cleanest board in a list beside an A-grade restaurant’s place page showing its grade, score and inspection record
+
+## Rules for what's on screen
+
+- **No negative boards** (Worst inspections, Recently failed, Pest citations) and **no D or F grade chip** in any
+  screenshot on the site or in the App Store. These are advertising, where the legal defenses for naming businesses are
+  weakest (`chi-eats/ios/playbook/app-review-risk.md` L5 and S6). Map pins are fine because they name no one.
+- Pick A- or B-graded places by license ID, not by name (a chain name can resolve to a lower-graded branch).
+- The placeholders say "Screenshot coming soon". Replace all six before the app is submitted, since App Review may open
+  the marketing site.
 
 ## How to capture
 
