@@ -63,7 +63,7 @@ Rules for anyone editing `docs/`.
 - **Data date.** "September 21, 2026" / "Sep 21" appears in `index.html` (hero stat, sources, FAQ answer and its JSON-LD),
   `support.html` (answer and JSON-LD) and `look-up-chicago-restaurant-inspections.html`. When an app update ships newer
   data, change them all (`grep -rn "September 21, 2026\|Sep 21" docs/`) and bump the sitemap `lastmod`.
-- **Counts** (8,363 places, 7,828 restaurants, 17,602 restaurants in 927 other Illinois towns, about two dozen published sales; regenerate from ios/ChiRanked/Resources/*.json meta after every export) come from `chi-eats/ios/ChiInspect/Resources/chicago.json` and
+- **Counts** (8,349 places, 7,815 restaurants, 17,602 restaurants in 927 other Illinois towns, about two dozen published sales; regenerate from ios/ChiRanked/Resources/*.json meta after every export) come from `chi-eats/ios/ChiInspect/Resources/chicago.json` and
   `illinois.json` (`meta`), `curated.json`, and the 70.7% calibration in `chi-eats/pipeline/illinois.py`. Update together.
 - **FAQ = JSON-LD.** The visible FAQ and the `FAQPage` JSON-LD must match word for word, on both `index.html` and
   `support.html`. `playbook/tools/verify.py` checks this.
