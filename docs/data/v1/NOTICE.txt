@@ -1,5 +1,5 @@
 Chicago Restaurants: Ranked: data files
-https://nickstrom5.github.io/chicago-restaurants-ranked/
+https://chicago.eatsranked.com/
 
 manifest.json and the chicago-*.json and illinois-*.json files it lists are the data the Chicago Restaurants: Ranked app shows. The attributions and licenses below are the ones the app shows on its About screen.
 
