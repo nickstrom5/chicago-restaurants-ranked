@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chicago Restaurants: Ranked | A–F Health Grades &amp; Food Map</title>
 <meta name="description" content="Free iPhone and iPad app with A–F health grades for Chicago restaurants, built from City of Chicago inspection records. Rankings, map and search. No ads.">
-<link rel="canonical" href="https://nickstrom5.github.io/chicago-restaurants-ranked/">
+<link rel="canonical" href="https://chicago.eatsranked.com/">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="theme-color" content="#0E3386">
 <!-- Smart App Banner: once the App Store Connect record exists, uncomment this and replace APP_ID with the
@@ -14,20 +14,20 @@
 -->
 <meta property="og:title" content="Chicago Restaurants: Ranked | A–F Health Grades &amp; Food Map">
 <meta property="og:description" content="Free iPhone and iPad app with A–F health grades for Chicago restaurants, built from City of Chicago inspection records. Rankings, map and search. No ads.">
-<meta property="og:url" content="https://nickstrom5.github.io/chicago-restaurants-ranked/">
+<meta property="og:url" content="https://chicago.eatsranked.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Chicago Restaurants: Ranked">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="https://nickstrom5.github.io/chicago-restaurants-ranked/og.png">
+<meta property="og:image" content="https://chicago.eatsranked.com/og.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a red Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped. Free for iPhone and iPad, no ads, no account.">
+<meta property="og:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped. Free for iPhone and iPad, no ads, no account.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Chicago Restaurants: Ranked | A–F Health Grades &amp; Food Map">
 <meta name="twitter:description" content="Free iPhone and iPad app with A–F health grades for Chicago restaurants, built from City of Chicago inspection records. Rankings, map and search. No ads.">
-<meta name="twitter:image" content="https://nickstrom5.github.io/chicago-restaurants-ranked/og.png">
-<meta name="twitter:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a red Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped. Free for iPhone and iPad, no ads, no account.">
+<meta name="twitter:image" content="https://chicago.eatsranked.com/og.png">
+<meta name="twitter:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped. Free for iPhone and iPad, no ads, no account.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
@@ -74,6 +74,8 @@
   .btn svg { width: 22px; height: 22px; flex: 0 0 22px; }
   .btn.alt { background: var(--white); color: var(--blue); }
   .btn.alt:hover { background: var(--sky); color: var(--ink); }
+  .btn.line { background: var(--white); color: var(--blue); box-shadow: inset 0 0 0 2px var(--blue); }
+  .btn.line:hover { background: var(--sky); color: var(--ink); }
   /* grade chips */
   .g { display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: .36em; font-family: var(--display); font-stretch: condensed; font-weight: 800; line-height: 1; }
   .gA { background: #12733A; color: #fff; } .gB { background: #4B7A1B; color: #fff; } .gC { background: #F2B01E; color: #2B1D00; }
@@ -165,6 +167,7 @@
   .final p { color: #DCE5F7; }
   .final .cta-row { justify-content: center; }
   .final .pill { color: #DCE5F7; }
+  .final .web { margin: 18px 0 0; font-size: 16px; }
   .final a:not(.btn) { color: #fff; }
   .final :focus-visible { outline-color: #fff; }
   @media (max-width: 900px) {
@@ -194,13 +197,13 @@
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://nickstrom5.github.io/chicago-restaurants-ranked/#org",
+      "@id": "https://chicago.eatsranked.com/#org",
       "name": "Chicago Restaurants: Ranked",
       "alternateName": "Chi Ranked",
-      "url": "https://nickstrom5.github.io/chicago-restaurants-ranked/",
+      "url": "https://chicago.eatsranked.com/",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://nickstrom5.github.io/chicago-restaurants-ranked/icon-512.png",
+        "url": "https://chicago.eatsranked.com/icon-512.png",
         "width": 512,
         "height": 512
       },
@@ -211,7 +214,7 @@
       "contactPoint": {
         "@type": "ContactPoint",
         "contactType": "customer support",
-        "url": "https://nickstrom5.github.io/chicago-restaurants-ranked/support.html",
+        "url": "https://chicago.eatsranked.com/support.html",
         "availableLanguage": "en"
       },
       "sameAs": [
@@ -220,36 +223,36 @@
     },
     {
       "@type": "WebSite",
-      "@id": "https://nickstrom5.github.io/chicago-restaurants-ranked/#website",
+      "@id": "https://chicago.eatsranked.com/#website",
       "name": "Chicago Restaurants: Ranked",
       "alternateName": "Chi Ranked",
-      "url": "https://nickstrom5.github.io/chicago-restaurants-ranked/",
+      "url": "https://chicago.eatsranked.com/",
       "description": "Chicago Restaurants: Ranked: A–F health grades for Chicago restaurants, built from City of Chicago inspection records.",
       "inLanguage": "en",
       "publisher": {
-        "@id": "https://nickstrom5.github.io/chicago-restaurants-ranked/#org"
+        "@id": "https://chicago.eatsranked.com/#org"
       }
     },
     {
       "@type": "MobileApplication",
-      "@id": "https://nickstrom5.github.io/chicago-restaurants-ranked/#app",
+      "@id": "https://chicago.eatsranked.com/#app",
       "name": "Chicago Restaurants: Ranked",
       "alternateName": "Chi Ranked",
       "operatingSystem": "iOS",
       "applicationCategory": "LifestyleApplication",
       "applicationSubCategory": "Food & Drink",
       "description": "Chicago Restaurants: Ranked is a free iPhone and iPad app that turns City of Chicago food inspection records into a 0–100 score and an A–F grade for Chicago restaurants, with rankings, a map, search and saved places. The grade is calculated by the app and is not an official City of Chicago grade. No ads, no in-app purchases, no account.",
-      "url": "https://nickstrom5.github.io/chicago-restaurants-ranked/",
-      "image": "https://nickstrom5.github.io/chicago-restaurants-ranked/og.png",
+      "url": "https://chicago.eatsranked.com/",
+      "image": "https://chicago.eatsranked.com/og.png",
       "inLanguage": "en",
       "isAccessibleForFree": true,
       "screenshot": [
-        "https://nickstrom5.github.io/chicago-restaurants-ranked/screenshots/iphone-1.png",
-        "https://nickstrom5.github.io/chicago-restaurants-ranked/screenshots/iphone-2.png",
-        "https://nickstrom5.github.io/chicago-restaurants-ranked/screenshots/iphone-3.png",
-        "https://nickstrom5.github.io/chicago-restaurants-ranked/screenshots/iphone-4.png",
-        "https://nickstrom5.github.io/chicago-restaurants-ranked/screenshots/iphone-5.png",
-        "https://nickstrom5.github.io/chicago-restaurants-ranked/screenshots/ipad-1.png"
+        "https://chicago.eatsranked.com/screenshots/iphone-1.png",
+        "https://chicago.eatsranked.com/screenshots/iphone-2.png",
+        "https://chicago.eatsranked.com/screenshots/iphone-3.png",
+        "https://chicago.eatsranked.com/screenshots/iphone-4.png",
+        "https://chicago.eatsranked.com/screenshots/iphone-5.png",
+        "https://chicago.eatsranked.com/screenshots/ipad-1.png"
       ],
       "featureList": [
         "A–F grade and 0–100 score from City of Chicago inspections since January 2023",
@@ -264,7 +267,7 @@
         "name": "Nicholas Soderstrom"
       },
       "publisher": {
-        "@id": "https://nickstrom5.github.io/chicago-restaurants-ranked/#org"
+        "@id": "https://chicago.eatsranked.com/#org"
       },
       "offers": {
         "@type": "Offer",
@@ -326,7 +329,7 @@
       "name": "How up to date is the inspection data?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The data is built into the app. This version includes City of Chicago inspection records through September 20, 2026. The City adds new inspections to its dataset every Friday, and newer records reach the app with app updates."
+        "text": "When you open the app, it checks this website for newer restaurant data, at most once a day, or an hour later if a check didn’t get through. New data comes about once a week, and the app downloads it on its own, so newer City of Chicago inspection records arrive without an app update. The City posts inspection results as they are entered, some more than a week after the visit, and each update uses City records through about a week before it runs, so the app can lag the City by a week or more. The app shows the date its City records run through."
       }
     },
     {
@@ -334,7 +337,7 @@
       "name": "Is the app free, and does it track me?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "It is free, with no ads, no in-app purchases and no account. The app collects no data. Location is optional: if you allow it, it is used only on your device to show you on the map and sort places near you. Saved places stay on your device too."
+        "text": "It is free, with no ads, no in-app purchases and no account. The app collects no data, and its checks for data updates carry no location, no identifiers and nothing about what you do in the app. Location is optional: if you allow it, it is used only on your device to show you on the map and sort places near you. Saved places stay on your device too."
       }
     },
     {
@@ -342,7 +345,7 @@
       "name": "Does it cover the suburbs and the rest of Illinois?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Grades and inspection details cover the City of Chicago only, because they come from the City’s records. The app also has a map directory of 17,602 restaurants in 927 other Illinois towns, built from Overture Maps listings, with no inspection data. When we checked the same kind of listing against Chicago’s records, about 7 in 10 matched a restaurant the City inspects, so treat them as a starting point."
+        "text": "Grades and inspection details cover the City of Chicago only, because they come from the City’s records. The app also has a map directory of thousands of restaurants in hundreds of other Illinois towns, built from Overture Maps listings, with no inspection data. When we checked the same kind of listing against Chicago’s records, about 7 in 10 matched a restaurant the City inspects, so treat them as a starting point."
       }
     }
   ]
@@ -359,6 +362,7 @@
       <a href="chicago-restaurant-grades.html">Grades</a>
       <a href="look-up-chicago-restaurant-inspections.html">Look up a place</a>
       <a href="#faq">FAQ</a>
+      <a href="explore/">Search on the web</a>
     </nav>
   </div>
 </header>
@@ -368,10 +372,11 @@
       <div>
         <p class="kicker">Free for iPhone and iPad</p>
         <h1 id="h1">Chicago restaurant inspections, graded A to F</h1>
-        <p class="lede">Chicago Restaurants: Ranked turns the City of Chicago’s food inspection records into a 0–100 score and a letter grade for nearly every restaurant in the city. See the cleanest records, recent failed inspections and pest citations, on a list or a map, before you pick a place to eat.</p>
+        <p class="lede">Chicago Restaurants: Ranked turns the City of Chicago’s food inspection records into a 0–100 score and a letter grade for nearly every restaurant in the city. See the cleanest records, failed latest inspections and pest citations, on a list or a map, before you pick a place to eat.</p>
         <p class="note">The grade is ours, calculated the same way for every place from public records. It is not an official City of Chicago grade.</p>
         <div class="cta-row">
           <a class="btn" data-store-btn><span data-store-label>Coming soon to the App Store</span></a>
+          <a class="btn line" href="explore/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span>Search on the web</span></a>
           <span class="pill" data-store-note>Free. No ads, no in-app purchases, no account.</span>
         </div>
       </div>
@@ -392,9 +397,9 @@
     </div>
     <div class="wrap">
       <dl class="stats">
-        <div><dt>Chicago restaurants, out of 8,349 licensed food places</dt><dd>7,815</dd></div>
-        <div><dt>City inspection records included through September 20, 2026</dt><dd>Sep 20</dd></div>
-        <div><dt>More restaurants on the map in 927 other Illinois towns</dt><dd>17,602</dd></div>
+        <div><dt>Chicago restaurants, out of <span data-stat="places">8,354</span> licensed food places</dt><dd><span data-stat="restaurants">7,820</span></dd></div>
+        <div><dt>Data updates from City inspection records, now through <span data-stat="records_through">September 21, 2026</span></dt><dd>Weekly</dd></div>
+        <div><dt>More restaurants on the map in <span data-stat="towns">927</span> other Illinois towns</dt><dd><span data-stat="illinois">17,602</span></dd></div>
         <div><dt>No ads, no in-app purchases, no account</dt><dd>$0</dd></div>
       </dl>
     </div>
@@ -409,7 +414,7 @@
         <li class="card"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"/></svg></span><h3>Filters that match how you eat</h3><p>Narrow any board by side of the city, neighborhood, cuisine, grade, alcohol or a dining room, and hide chains. Airports, stadiums and cafeterias stay hidden unless you include them.</p></li>
         <li class="card"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.1 7-12a7 7 0 0 0-14 0c0 5.9 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>A map with grades on it</h3><p>Pins colored by grade across the city. Tap Near Me on the home screen to see the closest places first; your location is used on your device only.</p></li>
         <li class="card"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span><h3>Search the whole city</h3><p>Find a place by name, street, neighborhood, cuisine or zip code, or look up a town elsewhere in Illinois.</p></li>
-        <li class="card"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/></svg></span><h3>The whole record on one page</h3><p>Grade and score, inspection counts, the last visit’s date and result, a link to the City’s official records, licenses (alcohol, patio, late hours, dining room), years open, building value and honors. Directions in Apple Maps, the website, and a share button.</p></li>
+        <li class="card"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/></svg></span><h3>The whole record on one page</h3><p>Grade and score, inspection counts, the last visit’s date and result, a link to the City’s official records, licenses (alcohol, patio, late hours, dining room), the opening year or first City record, building value and honors. Directions in Apple Maps, the website, a share button and a way to report a problem with the listing.</p></li>
         <li class="card"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span><h3>Saved places, no account</h3><p>Save the places you want to try or go back to. The list stays on your device.</p></li>
       </ul>
     </div>
@@ -470,7 +475,7 @@
       </div>
       <div id="privacy">
         <h2>Private by design</h2>
-        <p class="sub">The app collects no data at all. No analytics, no ads, no tracking and no sign-in. Location is optional and never leaves your device; it only puts you on the map and sorts places near you. Saved places stay on your device. <a href="privacy.html">Read the privacy policy</a>.</p>
+        <p class="sub">The app collects no data at all. No analytics, no ads, no tracking and no sign-in. Location is optional and never leaves your device; it only puts you on the map and sorts places near you. Saved places stay on your device. When you open the app, it checks this website for newer restaurant data (at most once a day, or an hour later if a check didn’t get through) and downloads it when there is some, about once a week; those requests carry no location, no identifiers and nothing about what you do in the app. <a href="privacy.html">Read the privacy policy</a>.</p>
       </div>
     </div>
   </section>
@@ -480,10 +485,10 @@
       <h2 id="sources-h">Where the data comes from</h2>
       <p class="sub">Public records and verified facts, with each source named in the app.</p>
       <ul class="sources">
-        <li><b>City of Chicago Food Inspections and Business Licenses.</b> Inspection results and violations, license types, and when each place was first licensed, for 8,349 places across Chicago’s neighborhoods. Records through September 20, 2026. <a href="https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5" rel="noopener">Food Inspections on the Chicago Data Portal</a>.</li>
+        <li><b>City of Chicago Food Inspections and Business Licenses.</b> Inspection results and violations, license types, and when each place was first licensed, for <span data-stat="places">8,354</span> places across Chicago’s neighborhoods. Updated about weekly; records now run through <span data-stat="records_through">September 21, 2026</span>. <a href="https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5" rel="noopener">Food Inspections on the Chicago Data Portal</a>.</li>
         <li><b>Cook County Assessor.</b> An estimated market value of the property at each address, from the Assessor’s 2025 values as certified by the Board of Review, shown as building value. It is the whole property, not the restaurant business.</li>
         <li><b>Hand-verified honors and history.</b> Michelin Guide Chicago 2025 stars, James Beard Foundation awards and America’s Classics, long-running local icons, opening years from verified histories, and published annual sales for about two dozen independents from Restaurant Business’s Top 100 Independents.</li>
-        <li><b>Opening years.</b> From City license records, which start in 2002, so an older place can show “2002 or earlier” unless its history has been verified.</li>
+        <li><b>Opening years.</b> From the first City of Chicago license or inspection record at the address. Those records start in 2002, so an older place can show “2002 or earlier” unless its history has been verified.</li>
         <li><b>Overture Maps Foundation.</b> Official websites, and the directory of restaurants in other Illinois towns (CDLA Permissive 2.0, Apache 2.0 and CC0).</li>
       </ul>
     </div>
@@ -510,9 +515,9 @@
     <details><summary><h3>What does “pass with conditions” mean?</h3></summary><p>In the City’s own definitions, a pass with conditions means the inspector found critical or serious violations that were corrected during the inspection. A pass means none were found, and a fail means they could not be corrected during the inspection.</p></details>
     <details><summary><h3>Does a failed inspection mean a restaurant was shut down?</h3></summary><p>Not necessarily. The City notes that a fail does not necessarily mean the establishment’s license is suspended. A re-inspection, when there is one, is recorded as its own inspection, so check what happened after the fail. The app shows the date and result of the most recent visit.</p></details>
     <details><summary><h3>How is the A–F grade calculated?</h3></summary><p>Every pass, pass with conditions and fail since January 2023 counts. Points come off a 100-point score for failed inspections, pest citations, serious food-safety violations and violations per visit, passes with conditions, and a failed last visit. Places with few visits are pulled toward the city average. A score of 75 or more is an A. An F needs at least one failed inspection or pest citation, and an A needs no failed inspections.</p></details>
-    <details><summary><h3>How up to date is the inspection data?</h3></summary><p>The data is built into the app. This version includes City of Chicago inspection records through September 20, 2026. The City adds new inspections to its dataset every Friday, and newer records reach the app with app updates.</p></details>
-    <details><summary><h3>Is the app free, and does it track me?</h3></summary><p>It is free, with no ads, no in-app purchases and no account. The app collects no data. Location is optional: if you allow it, it is used only on your device to show you on the map and sort places near you. Saved places stay on your device too.</p></details>
-    <details><summary><h3>Does it cover the suburbs and the rest of Illinois?</h3></summary><p>Grades and inspection details cover the City of Chicago only, because they come from the City’s records. The app also has a map directory of 17,602 restaurants in 927 other Illinois towns, built from Overture Maps listings, with no inspection data. When we checked the same kind of listing against Chicago’s records, about 7 in 10 matched a restaurant the City inspects, so treat them as a starting point.</p></details>
+    <details><summary><h3>How up to date is the inspection data?</h3></summary><p>When you open the app, it checks this website for newer restaurant data, at most once a day, or an hour later if a check didn’t get through. New data comes about once a week, and the app downloads it on its own, so newer City of Chicago inspection records arrive without an app update. The City posts inspection results as they are entered, some more than a week after the visit, and each update uses City records through about a week before it runs, so the app can lag the City by a week or more. The app shows the date its City records run through.</p></details>
+    <details><summary><h3>Is the app free, and does it track me?</h3></summary><p>It is free, with no ads, no in-app purchases and no account. The app collects no data, and its checks for data updates carry no location, no identifiers and nothing about what you do in the app. Location is optional: if you allow it, it is used only on your device to show you on the map and sort places near you. Saved places stay on your device too.</p></details>
+    <details><summary><h3>Does it cover the suburbs and the rest of Illinois?</h3></summary><p>Grades and inspection details cover the City of Chicago only, because they come from the City’s records. The app also has a map directory of thousands of restaurants in hundreds of other Illinois towns, built from Overture Maps listings, with no inspection data. When we checked the same kind of listing against Chicago’s records, about 7 in 10 matched a restaurant the City inspects, so treat them as a starting point.</p></details>
       <p class="small">More answers on the <a href="support.html">support page</a>.</p>
     </div>
   </section>
@@ -524,6 +529,7 @@
       <div class="cta-row">
         <a class="btn alt" data-store-btn><span data-store-label>Coming soon to the App Store</span></a>
       </div>
+      <p class="web">Or <a href="explore/">search on the web</a>: the same grades, rankings and map, in your browser.</p>
     </div>
   </section>
 </main>
@@ -531,6 +537,7 @@
   <div class="wrap">
     <nav aria-label="Footer">
       <a href="./">Chicago Restaurants: Ranked home</a>
+      <a href="explore/">Search on the web</a>
       <a href="how-chicago-restaurant-inspections-work.html">How Chicago restaurant inspections work</a>
       <a href="look-up-chicago-restaurant-inspections.html">Look up a Chicago restaurant inspection</a>
       <a href="chicago-restaurant-grades.html">What the A–F grades mean</a>
@@ -542,6 +549,7 @@
     <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
     <p class="fine">City of Chicago data disclaimer: This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one's own risk.</p>
     <p class="fine">Inspection and license records: City of Chicago Data Portal. Property values: Cook County Assessor's Office. Restaurant websites and places outside Chicago: Overture Maps Foundation (CDLA Permissive 2.0, Apache 2.0, CC0).</p>
+    <p class="fine"><a href="https://eatsranked.com/" rel="noopener">More states at eatsranked.com</a></p>
     <p class="fine">© 2026 Nicholas Soderstrom. Made in Chicago.</p>
   </div>
 </footer>

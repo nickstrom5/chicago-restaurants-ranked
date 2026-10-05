@@ -1,13 +1,23 @@
 """SEO and link checks for docs/ (see playbook/01-site-runbook.md, "Verify before pushing").
-Serve docs/ under /chicago-restaurants-ranked/ first, then: python3 playbook/tools/verify.py
-Exit code 1 if anything fails."""
+The site lives at the root of https://chicago.eatsranked.com/. Serve docs/ at the root first
+(cd docs && python3 -m http.server 8791 --bind 127.0.0.1), then: python3 playbook/tools/verify.py
+SITE_ROOT points it at another server; a root-absolute link ("/x", used by 404.html) resolves against SITE_ROOT, so
+docs/ served under a path prefix (as publish_data.py stages it) checks the same way. Exit code 1 if anything fails.
+PAGES get every check. Every page in sitemap.xml, including ones built elsewhere (the web version, explore/), gets the
+site-wide ones in site_wide(): no old address, the hub link, canonical = og:url = its sitemap URL, JSON-LD that parses
+and points at the domain, and no "every Chicago restaurant" claim."""
 import json, re, sys, urllib.request, urllib.error, html
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 import os
-ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/chicago-restaurants-ranked/")
+ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/")
+ROOT = ROOT if ROOT.endswith("/") else ROOT + "/"
 HOST = urlparse(ROOT).netloc
-BASE = "https://nickstrom5.github.io/chicago-restaurants-ranked/"
+BASE = "https://chicago.eatsranked.com/"
+DOMAIN = urlparse(BASE).netloc
+WEB_APP = "explore/"          # the web version (built separately); every page links to it
+HUB = "https://eatsranked.com/"  # the other states; every footer links to it
+OLD_HOST = "nickstrom5.github.io"  # the old address: with docs/CNAME live, GitHub redirects it to BASE
 PAGES = ["", "how-chicago-restaurant-inspections-work.html", "look-up-chicago-restaurant-inspections.html",
          "chicago-restaurant-grades.html", "support.html", "privacy.html", "terms.html", "404.html"]
 problems = []
@@ -19,6 +29,42 @@ def get(url):
         r = urllib.request.urlopen(url, timeout=10); cache[url] = (r.status, r.read())
     except urllib.error.HTTPError as e: cache[url] = (e.code, b"")
     return cache[url]
+def site_url(base, v):
+    """A link as the browser resolves it on the live site: a root-absolute path is the site root (SITE_ROOT)."""
+    return ROOT + v[1:] if v.startswith("/") and not v.startswith("//") else urljoin(base, v)
+# our data covers nearly every Chicago restaurant, not every one (a few are filed under other City facility types).
+# Narrow on purpose: "Every restaurant in Chicago is inspected by the City" is about the City, not our coverage.
+OVERCLAIM = re.compile(r"(?<!nearly\s)\bevery\s+(?:Chicago\s+restaurant|restaurant\s+in\s+the\s+city)", re.I)
+def ld_urls(x):
+    """Every http(s) string in a JSON-LD value."""
+    if isinstance(x, dict): return [u for v in x.values() for u in ld_urls(v)]
+    if isinstance(x, list): return [u for v in x for u in ld_urls(v)]
+    return [x] if isinstance(x, str) and x.startswith(("http://", "https://")) else []
+def site_wide(page, src, p):
+    """Checks every page in the sitemap gets, whoever builds it. Returns the page's meta tags."""
+    name = page or "index.html"
+    if OLD_HOST in src: bad(name, "names the old address", OLD_HOST, "(use", BASE + ")")
+    if re.search(r'(?:href|src|content)="/chicago-restaurants-ranked/', src): bad(name, "root path with the old /chicago-restaurants-ranked/ prefix")
+    links = [a.get("href") for t, a in p.tags if t == "a"]
+    if HUB not in links: bad(name, "no footer link to", HUB)
+    for m in OVERCLAIM.finditer(html.unescape(src)): bad(name, "claims", repr(m.group(0)), "(say 'nearly every')")
+    metas = {(a.get("name") or a.get("property")): a.get("content") for t, a in p.tags if t == "meta"}
+    if "noindex" not in (metas.get("robots") or ""):
+        exp = BASE + page
+        canon = [a["href"] for t, a in p.tags if t == "link" and a.get("rel") == "canonical"]
+        if canon != [exp]: bad(name, "canonical", canon, "should be", exp)
+        if metas.get("og:url") != exp: bad(name, "og:url", metas.get("og:url"), "should be", exp)
+        if exp not in smurls: bad(name, "not in sitemap")
+        for k in ("og:image", "twitter:image"):
+            if not (metas.get(k) or "").startswith(BASE): bad(name, k, metas.get(k), "not on", BASE)
+    for blk in p.ld:
+        try: j = json.loads(blk)
+        except Exception as e: bad(name, "JSON-LD parse", e); continue
+        if "aggregateRating" in blk or '"review"' in blk: bad(name, "rating/review markup present")
+        for u in ld_urls(j):
+            if urlparse(u).netloc.endswith(DOMAIN.split(".", 1)[1]) and not u.startswith(BASE) and not u.startswith(HUB):
+                bad(name, "JSON-LD URL not on", BASE, u)
+    return metas
 
 class P(HTMLParser):
     def __init__(s):
@@ -56,10 +102,16 @@ for u in smurls:
     assert u.startswith(BASE), u
     st,_ = get(ROOT + u[len(BASE):])
     if st != 200: bad("sitemap url", u, st)
+if BASE + WEB_APP not in smurls: bad("sitemap: no", BASE + WEB_APP)
+st, cname = get(ROOT + "CNAME")
+if st != 200 or cname.decode().strip() != DOMAIN: bad("CNAME must say", DOMAIN, "got", st, cname[:60])
 for page in PAGES:
     url = ROOT + page; st, body = get(url); print(f"\n== {page or 'index.html'} [{st}] {len(body)} bytes")
     if st != 200: bad(page, "status", st); continue
     src = body.decode("utf-8"); p = P(); p.feed(src)
+    metas = site_wide(page, src, p)
+    links = [a.get("href") for t, a in p.tags if t == "a"]
+    if not any(h and h.split("#")[0] in (WEB_APP, "/" + WEB_APP) for h in links): bad(page, "no link to the web version", WEB_APP)
     for word in ("Worst inspections", "Recently failed", "worst boards", "Chi Inspect"):   # old or non-neutral names (app Board.swift titles rule)
         if word.lower() in src.lower(): bad(page, "uses banned wording", repr(word))
     if '<html lang="en">' not in src: bad(page, "lang")
@@ -72,18 +124,12 @@ for page in PAGES:
     if lv and lv[0] != 1: bad(page, "first heading not h1")
     for lm in ("header", "main", "nav", "footer"):
         if not any(t == lm for t, _ in p.tags): bad(page, "missing landmark", lm)
-    metas = {(a.get("name") or a.get("property")): a.get("content") for t, a in p.tags if t == "meta"}
     title = html.unescape(p.title); desc = metas.get("description", "")
     noindex = "noindex" in (metas.get("robots") or "")
     print(f"  title {len(title)}: {title}\n  desc {len(desc)}: {desc[:90]}...")
-    if not noindex:
+    if not noindex:   # canonical, og:url and the sitemap entry: site_wide()
         if not 50 <= len(title) <= 60: bad(page, "title length", len(title))
         if not 140 <= len(desc) <= 160: bad(page, "desc length", len(desc))
-        canon = [a["href"] for t, a in p.tags if t == "link" and a.get("rel") == "canonical"]
-        exp = BASE + page
-        if canon != [exp]: bad(page, "canonical", canon)
-        if metas.get("og:url") != exp: bad(page, "og:url", metas.get("og:url"))
-        if exp not in smurls: bad(page, "not in sitemap")
         if metas.get("robots") != "index,follow,max-image-preview:large": bad(page, "robots meta")
         for k in ("og:title","og:description","og:type","og:site_name","og:image","og:image:width","og:image:height","og:image:alt",
                   "twitter:card","twitter:title","twitter:description","twitter:image","theme-color"):
@@ -97,12 +143,11 @@ for page in PAGES:
     rels = [(a.get("rel"), a.get("sizes"), a.get("href")) for t, a in p.tags if t == "link"]
     for need in [("icon", None, "svg"), ("icon", "32x32", "favicon-32.png"), ("apple-touch-icon", "180x180", "apple-touch-icon.png"), ("manifest", None, "site.webmanifest")]:
         if not any(r == need[0] and (need[1] is None or s == need[1]) and h.endswith(need[2]) for r, s, h in rels): bad(page, "missing icon link", need)
-    # JSON-LD
+    # JSON-LD (parse errors, rating/review markup and URLs: site_wide())
     for blk in p.ld:
         try:
             j = json.loads(blk); types = [x.get("@type") for x in j.get("@graph", [j])]; print("  JSON-LD ok:", types)
-            if "aggregateRating" in blk or '"review"' in blk: bad(page, "rating/review markup present")
-        except Exception as e: bad(page, "JSON-LD parse", e)
+        except Exception: pass
     if page not in ("", "404.html") and not any('"BreadcrumbList"' in b for b in p.ld): bad(page, "no BreadcrumbList")
     # FAQ mirror
     faqs = [json.loads(b) for b in p.ld if '"FAQPage"' in b]
@@ -111,7 +156,7 @@ for page in PAGES:
         if page == "":
             vis = list(zip([s.strip() for s in p.summ], [x.strip() for x in p.faqp]))
         else:
-            vis = re.findall(r"<h2>(.*?)</h2>\s*<p>(.*?)</p>", src.split('<div class="qa">')[1].split("</div>")[0], re.S)
+            vis = re.findall(r"<h2[^>]*>(.*?)</h2>\s*<p>(.*?)</p>", src.split('<div class="qa">')[1].split("</div>")[0], re.S)
             vis = [(html.unescape(re.sub("<[^>]+>", "", a)), html.unescape(re.sub("<[^>]+>", "", b))) for a, b in vis]
         if vis != qs:
             bad(page, "FAQ mismatch"); [print("   V:", v, "\n   L:", l) for v, l in zip(vis, qs) if v != l]
@@ -132,7 +177,7 @@ for page in PAGES:
             if not v or t == "meta": continue
             if t == "link" and a.get("rel") == "canonical": continue
             if v.startswith(("mailto:", "tel:")): continue
-            full = urljoin(url, v); u = urlparse(full)
+            full = site_url(url, v); u = urlparse(full)
             if u.netloc == HOST:
                 n_int += 1
                 st3, b3 = get(full.split("#")[0])
@@ -154,13 +199,25 @@ for page in PAGES:
     if page == "":
         print("  index weight (html only):", len(body), "bytes")
         if len(body) > 150_000: bad("index too heavy")
+# every other page in the sitemap (built elsewhere, like the web version): the site-wide checks only
+for u in smurls:
+    page = u[len(BASE):]
+    if page in PAGES or not (page == "" or page.endswith(("/", ".html"))): continue
+    st, body = get(ROOT + page); print(f"\n== {page} [{st}] {len(body)} bytes (sitemap page: site-wide checks)")
+    if st != 200: continue   # reported with the sitemap URLs above
+    src = body.decode("utf-8"); p = P(); p.feed(src)
+    site_wide(page, src, p)
+    if '<html lang="en">' not in src: bad(page, "lang")
 # manifest
 m = json.loads(get(ROOT+"site.webmanifest")[1])
 for ic in m["icons"]:
-    st4,_ = get(urljoin(ROOT+"site.webmanifest", ic["src"]))
+    st4,_ = get(site_url(ROOT+"site.webmanifest", ic["src"]))
     if st4 != 200: bad("manifest icon", ic["src"], st4)
+if m.get("start_url") != "/" or m.get("scope") != "/": bad("manifest start_url/scope must be / (site at the domain root)")
 print("\nmanifest ok:", m["start_url"], [i["src"] for i in m["icons"]])
-print("robots.txt:", get(ROOT+"robots.txt")[1].decode().strip().replace("\n"," | "))
+robots = get(ROOT+"robots.txt")[1].decode()
+if f"Sitemap: {BASE}sitemap.xml" not in robots.splitlines(): bad("robots.txt Sitemap line")
+print("robots.txt:", robots.strip().replace("\n"," | "))
 print(".nojekyll:", get(ROOT+".nojekyll")[0])
 print("\nPROBLEMS:", len(problems))
 for x in problems: print(" -", x)

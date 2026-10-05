@@ -1,0 +1,53 @@
+{
+  "about": "A copy of DataAndSearchTests.rules (chi-eats/ios/ChiRankedTests/DataAndSearchTests.swift): names that exercise each search rule. Keep it in step with the test when the test's rows change.",
+  "chicago": {
+    "cols": ["id", "name", "aka", "cuisine", "alt", "lat", "lon", "venue", "hood", "side"],
+    "rows": [
+      ["1", "Dicola Seafood", null, 0, null, 41.88, -87.63, 0, 0, 0],
+      ["2", "Skyway Dog House", null, 1, null, 41.88, -87.63, 0, 0, 0],
+      ["3", "A.P. Deli", null, 2, null, 41.88, -87.63, 0, 0, 0],
+      ["4", "Ja Grill Hyde Park", null, 3, null, 41.88, -87.63, 0, 0, 0],
+      ["5", "Rude Boys Roadside Jerk Smokehouse", null, 3, null, 41.88, -87.63, 0, 0, 0],
+      ["6", "Chicago Wings Around the World", null, 4, null, 41.88, -87.63, 0, 0, 0],
+      ["7", "The Sizzling Skillet", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["8", "Yumi Express", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["9", "Koto", null, 5, "Koto Hibachi · Koto Sushi", 41.88, -87.63, 0, 0, 0],
+      ["10", "Ahuevo", null, 6, null, 41.88, -87.63, 0, 0, 0],
+      ["11", "Fatburger Buffalo's Express", null, 7, null, 41.88, -87.63, 0, 0, 0],
+      ["12", "Pizza Palace", null, 8, null, 41.88, -87.63, 0, 0, 0],
+      ["13", "Fox's Beverly Pub", null, 9, null, 41.88, -87.63, 0, 0, 0],
+      ["14", "Buffalo Sam", null, 4, null, 41.88, -87.63, 0, 0, 0],
+      ["15", "Pizza Town", null, 8, null, 41.88, -87.63, 0, 0, 0],
+      ["16", "Top-Notch Beefburger", null, 7, null, 41.88, -87.63, 0, 0, 0],
+      ["17", "Honey Bzzz", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["18", "Moggie Gyros & Chicken", null, 5, ["Maggie Gyros"], 41.88, -87.63, 0, 0, 0],
+      ["19", "Al Beef Stand", null, 1, null, 41.88, -87.63, 0, 0, 0],
+      ["20", "Brick Oven Pizza", null, 8, null, 41.88, -87.63, 0, 0, 0],
+      ["21", "Wingz It Iz", null, 4, null, 41.88, -87.63, 0, 0, 0],
+      ["22", "Chicago's Dog House", null, 1, null, 41.88, -87.63, 0, 0, 0],
+      ["23", "Billy Goat Tavern & Grill", null, 9, null, 41.88, -87.63, 0, 0, 0],
+      ["24", "Ela Taverna", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["25", "Halsted Street Deli & Bagel", null, 2, null, 41.88, -87.63, 0, 0, 0],
+      ["26", "Mama Delia & Bordel", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["27", "Los Tres Panchos", null, 6, null, 41.88, -87.63, 0, 0, 0],
+      ["28", "Lost Larson", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["29", "Bar on Buena", null, 9, null, 41.88, -87.63, 0, 0, 0],
+      ["30", "Burger Baron", null, 7, null, 41.88, -87.63, 0, 0, 0],
+      ["31", "The Pony Inn", null, 9, null, 41.88, -87.63, 0, 0, 0],
+      ["32", "Krung Thep Thai", null, 5, null, 41.88, -87.63, 0, 0, 0],
+      ["33", "Shogun Hibachi", null, 5, null, 41.88, -87.63, 0, 0, 0]
+    ],
+    "meta": {"records_through": "2026-09-20", "hoods": ["Loop"], "sides": ["Central"],
+             "cuisines": ["Seafood", "Hot Dogs", "Sandwiches & Deli", "Latin & Caribbean", "Chicken & Wings", "American & Other", "Mexican", "Burgers", "Pizza", "Bar & Pub"]}
+  },
+  "illinois": {
+    "cols": ["name", "city", "lat", "lon", "alt"],
+    "rows": [
+      ["SugaChurros", 0, 41.66, -87.68, null],
+      ["DA's Deli and Dining", 1, 41.62, -87.55, "D.A.'s Corned Beef Stand"],
+      ["L and J Bootlegger Saloon", 1, 41.61, -87.54, null],
+      ["Down The Street", 0, 41.65, -87.67, null]
+    ],
+    "meta": {"cities": ["Blue Island", "Calumet City"], "cuisines": ["Pizza"], "brands": []}
+  }
+}

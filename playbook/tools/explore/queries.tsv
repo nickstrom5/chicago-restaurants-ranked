@@ -1,0 +1,250 @@
+# Hand-written searches the oracle runs on top of the ones it reads from DataAndSearchTests.swift and the ones it samples
+# from the data. One per line: dataset <TAB> scope <TAB> text. dataset is bundled (the app's data), rules or edge
+# (fixtures/), scope chicago or illinois. Text is taken as is (leading and trailing spaces too).
+# --- the app's own suggestions and screenshot searches
+bundled	chicago	tacos pilsen
+bundled	chicago	west loop
+bundled	chicago	pizza
+bundled	chicago	logan square
+bundled	chicago	60614
+bundled	chicago	portillo
+bundled	chicago	coffee wicker park
+bundled	chicago	south side bbq
+bundled	illinois	naperville
+# --- streets, directions and street types
+bundled	chicago	north ave
+bundled	chicago	north
+bundled	chicago	n
+bundled	chicago	halsted st
+bundled	chicago	halsted street
+bundled	chicago	halst
+bundled	chicago	king dr
+bundled	chicago	martin luther king drive
+bundled	chicago	1600 n milwaukee
+bundled	chicago	w 47th st
+bundled	chicago	s state
+bundled	chicago	state st
+bundled	chicago	o hare
+bundled	chicago	ohare
+bundled	chicago	o'hare
+bundled	chicago	mount greenwood
+bundled	chicago	saint
+bundled	chicago	ave
+bundled	chicago	boul
+bundled	chicago	down the street
+bundled	chicago	l and j
+# --- neighborhoods, sides, towns
+bundled	chicago	near north side
+bundled	chicago	wicker park
+bundled	chicago	far southwest side
+bundled	chicago	downtown
+bundled	chicago	the loop
+bundled	chicago	back of the yards
+bundled	chicago	pizza north side
+bundled	chicago	tacos little village
+bundled	chicago	sushi river north
+bundled	chicago	pilsen yards
+bundled	chicago	lake view
+bundled	chicago	lakeview
+bundled	chicago	bronzeville
+bundled	illinois	west chicago
+bundled	illinois	saint charles
+bundled	illinois	st charles
+bundled	illinois	st. charles
+bundled	illinois	mount prospect
+bundled	illinois	mt prospect
+bundled	illinois	pizza naperville
+bundled	illinois	chicago
+bundled	illinois	evanston coffee
+bundled	illinois	springfield
+bundled	illinois	naperville tacos
+# --- food words, emoji, punctuation, odd input
+bundled	chicago	🍕
+bundled	chicago	🌭
+bundled	chicago	🌮 pilsen
+bundled	chicago	☕️
+bundled	chicago	hot dog
+bundled	chicago	hot dogs
+bundled	chicago	italian beef
+bundled	chicago	burritos
+bundled	chicago	dumplings
+bundled	chicago	donuts
+bundled	chicago	bbq
+bundled	chicago	bar b q
+bundled	chicago	wings
+bundled	chicago	gyros
+bundled	chicago	curry
+bundled	chicago	bagel
+bundled	chicago	ramen
+bundled	chicago	pho
+bundled	chicago	ice cream
+bundled	chicago	brunch
+bundled	chicago	!!!
+bundled	chicago	-
+bundled	chicago	'
+bundled	chicago	&
+bundled	chicago	the
+bundled	chicago	a
+bundled	chicago	the and of
+bundled	chicago	  lou malnati's
+bundled	chicago	LOU MALNATIS
+bundled	chicago	lou malnati’s
+bundled	chicago	b&b
+bundled	chicago	b & b
+bundled	chicago	jj fish
+bundled	chicago	j&j fish
+bundled	chicago	j & j fish and chicken
+bundled	chicago	mcdonald's
+bundled	chicago	mcdonalds
+bundled	chicago	café
+bundled	chicago	cafe
+bundled	chicago	señor
+bundled	chicago	pho bo
+bundled	chicago	phở
+bundled	chicago	tacos el
+bundled	chicago	el
+bundled	chicago	la
+bundled	chicago	de
+bundled	chicago	a huevo
+bundled	chicago	ahuevo
+bundled	chicago	alinea
+bundled	chicago	au cheval
+bundled	chicago	superdawg
+bundled	chicago	girl and the goat
+bundled	chicago	girl & the goat
+bundled	chicago	kasama
+bundled	chicago	smoque
+bundled	chicago	starbucks
+bundled	chicago	dunkin
+bundled	chicago	subway
+bundled	chicago	7 eleven
+bundled	chicago	7-eleven
+bundled	chicago	harold's chicken
+bundled	chicago	harolds
+bundled	chicago	jims original
+bundled	chicago	maxwell street
+# --- no exact match: Closest matches
+bundled	chicago	portilllo
+bundled	chicago	portilo
+bundled	chicago	porttillo's hot dogs
+bundled	chicago	lou malnattis pizza
+bundled	chicago	giordanos pizzaa
+bundled	chicago	au chevall
+bundled	chicago	superdog
+bundled	chicago	zzqx fooba
+bundled	chicago	qwerty asdf zxcv
+bundled	chicago	caribbean zzqx
+bundled	chicago	pizza zzqx yyzz
+bundled	chicago	pizza zzqx yyzz wwvv
+bundled	chicago	the best tacos in town
+bundled	chicago	fox's pizza and pub
+bundled	chicago	hot chi chicken & cones
+bundled	chicago	alinnea
+bundled	chicago	kasamma
+bundled	chicago	skyway doghous
+bundled	illinois	lou malnattis
+bundled	illinois	zzqx
+bundled	illinois	portilos naperville
+# --- the rules fixture beyond the test's own queries
+rules	chicago	wing
+rules	chicago	wings
+rules	chicago	dog
+rules	chicago	dogs
+rules	chicago	house
+rules	chicago	deli
+rules	chicago	tavern
+rules	chicago	pizza
+rules	chicago	burger
+rules	chicago	burgers
+rules	chicago	koto
+rules	chicago	sushi
+rules	chicago	yumi
+rules	chicago	yummi
+rules	chicago	honey bzz
+rules	chicago	honey buzz
+rules	chicago	buffalo
+rules	chicago	buffalos
+rules	chicago	sams
+rules	chicago	skillet
+rules	chicago	sizzlin
+rules	chicago	ap
+rules	chicago	a p
+rules	chicago	ja
+rules	chicago	jagrill
+rules	illinois	sugachurro
+rules	illinois	das deli
+rules	illinois	da's
+rules	illinois	l j
+rules	illinois	bootlegger
+rules	illinois	blue island
+rules	illinois	calumet city
+# --- the edge fixture
+edge	chicago	café ñandú
+edge	chicago	cafe nandu
+edge	chicago	nandu
+edge	chicago	ñ
+edge	chicago	b&b
+edge	chicago	b & b grill
+edge	chicago	bb grill
+edge	chicago	bbs place
+edge	chicago	bb's
+edge	chicago	the b spot
+edge	chicago	bee bee
+edge	chicago	mrs p
+edge	chicago	mrs p & me
+edge	chicago	p and me
+edge	chicago	ca va
+edge	chicago	pho
+edge	chicago	phở bò
+edge	chicago	pho bo argyle
+edge	chicago	da's place
+edge	chicago	d.a.'s
+edge	chicago	das
+edge	chicago	uno
+edge	chicago	pizzeria
+edge	chicago	uno pizzeria
+edge	chicago	halsted st
+edge	chicago	halsted st tacos
+edge	chicago	king dr
+edge	chicago	king drive cafe
+edge	chicago	wicker park
+edge	chicago	wicker park pub
+edge	chicago	o hare
+edge	chicago	ohare
+edge	chicago	o'hare terminal
+edge	chicago	すし匠
+edge	chicago	すし
+edge	chicago	sushi sho
+edge	chicago	resume
+edge	chicago	résumé café
+edge	chicago	ｃａｆé
+edge	chicago	strasse
+edge	chicago	straße
+edge	chicago	starbucks
+edge	chicago	eclair
+edge	chicago	éclair
+edge	chicago	catering
+edge	chicago	mount prospect
+edge	chicago	mt prospect
+edge	chicago	north side hot dogs
+edge	chicago	north side
+edge	chicago	loop tavern
+edge	chicago	loop
+edge	chicago	the loop
+edge	chicago	hot dogs
+edge	chicago	starbuck
+edge	chicago	starbuckss
+edge	chicago	nandoo
+edge	chicago	zzqx
+edge	illinois	lou malnati's
+edge	illinois	lou malnatis naperville
+edge	illinois	nandu cafe
+edge	illinois	cafe nandu wheaton
+edge	illinois	huck's
+edge	illinois	west chicago
+edge	illinois	wechi
+edge	illinois	saint charles
+edge	illinois	st charles grill
+edge	illinois	naperville
+edge	illinois	naperville tacos
+edge	illinois	tacos
