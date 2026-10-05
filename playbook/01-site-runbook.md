@@ -168,6 +168,23 @@ Rules for anyone editing `docs/`.
   device, such as the device's own language), that section and the label change first. `privacy.html` "The web version"
   describes `explore/`: nothing collected, no cookies or third-party requests, Saved in the browser's storage, location
   only on a tap and only in the browser. If `explore/` ever changes any of that, that section changes first.
+- **Visible page dates are the push date.** When the words of any page with an "Effective" or "Updated" line change
+  (`privacy.html`, `terms.html`, `support.html` and the three guides: `how-chicago-restaurant-inspections-work.html`,
+  `look-up-chicago-restaurant-inspections.html`, `chicago-restaurant-grades.html`), that line is the day the new words
+  go live (the push date), never an earlier day; bump the page's `<lastmod>` in `sitemap.xml` (and a guide's Article
+  `dateModified`) with it. If the push slips past the date you wrote, change the date before pushing. `data-stat`
+  span updates by `update_counts.py` don't count as new words. (The 2026-10-05 rewrite of privacy and terms first
+  shipped under "Effective 28 September 2026", a week before it went live, and privacy promises a new effective date
+  for changes; the three guides' wording changes in that push also went out under "Updated 28 September 2026".)
+- **Site edits go out before a data publish.** `chi-eats/pipeline/publish_data.py` refuses to run while `docs/` has
+  uncommitted or untracked changes, and while the site has unpushed commits it didn't make (any commit whose subject
+  isn't its own `Data:`/`Weekly data: City records through …`, or that touches anything outside `docs/`, this
+  runbook included). So run §4, then commit **and push** page and playbook edits (with Nick's OK) before a
+  `--push` or `--republish --push` run, or the weekly run that follows.
+- **Say which version a sentence covers.** The terms and privacy cover both the app and this website, which differ:
+  in the app the map and directions are Apple's; on the web the map is drawn in the browser from City of Chicago and
+  OpenStreetMap/Overture outline files (no map service), and directions open Apple Maps. The app's links go to
+  this website (chicago.eatsranked.com), not to GitHub.
 
 ## 4. Verify before pushing
 
@@ -186,9 +203,8 @@ Every URL in `sitemap.xml` also gets the site-wide checks, including pages built
 github.io address or `/chicago-restaurants-ranked/` path, the eatsranked.com hub link, canonical = og:url = its sitemap
 URL, og:image and twitter:image on the domain, JSON-LD that parses, points at the domain and has no rating or review
 markup, and no "every Chicago restaurant" (the data covers nearly every one). A new page in the sitemap is checked
-automatically. As of 2026-09-28 `explore/index.html` fails these (it still names the old address, has no hub link and
-says "Search every Chicago restaurant"); the Explore workflow owns that file, and the first publish can't pass its site
-check until it's fixed.
+automatically. `explore/index.html` (owned by the Explore workflow) failed these on 2026-09-28 and passes them as of
+2026-10-05.
 
 `verify.py` exits 1 on any problem. Set `SITE_ROOT` to check another server, including the live site
 (`SITE_ROOT=https://chicago.eatsranked.com/ python3 playbook/tools/verify.py`). A root-absolute link (`/x`, in
@@ -204,7 +220,10 @@ link to `support.html#report`).
 ### Before submitting build 1.0 (2)
 
 Build 1.0 (2) is the first build with the weekly data refresh, and the site, terms, privacy policy and listing all say the
-data is refreshed about weekly. All three steps below are blockers, in this order: as of 2026-09-28 none is done.
+data is refreshed about weekly. The three steps below were blockers, in this order. **Steps 1 and 2 were done on
+2026-10-05** (the pages are live at https://chicago.eatsranked.com/ over HTTPS with Enforce HTTPS on, and the first
+publish made manifest version 2026-09-28.1); step 3's task exists but still needs its permissions approved. Before
+each submission, check again that the pages and the manifest return 200.
 
 1. **Push the pages and move to the domain.** Run §4 (it must end `PROBLEMS: 0`, `explore/` included), then commit
    **and push** everything under `docs/` **before** the first publish, until `git status -- docs` is clean: the updated
@@ -215,16 +234,19 @@ data is refreshed about weekly. All three steps below are blockers, in this orde
    check `https://chicago.eatsranked.com/privacy.html` loads over HTTPS: App Review reads it, and the listing's Support,
    Marketing and Privacy URLs point at the domain. Until the first publish, `explore/` can't load data (it reads
    `data/v1/manifest.json`), so do step 2 straight after.
-2. **First data publish.** From `chi-eats/`: `.venv/bin/python pipeline/publish_data.py --first --push` (a
-   `--first --dry-run` first shows everything and writes nothing). It stops at its `live_manifest` gate until
+2. **First data publish (done 2026-10-05).** From `chi-eats/`: `.venv/bin/python pipeline/publish_data.py --first --push`
+   (a `--first --dry-run` first shows everything and writes nothing; `--first` is ignored now that a live manifest exists). It stops at its `live_manifest` gate until
    `https://chicago.eatsranked.com/` has a valid certificate (step 1). Then
    `curl -sI https://chicago.eatsranked.com/data/v1/manifest.json`, the address build 1.0 (2) fetches, must return 200,
    and About › "Check for new data" on the TestFlight build must say "You have the latest data". Until then the manifest
    is a 404 (or, without the certificate, unreadable), the button says "Couldn't check — try again later", and the review
    notes send the reviewer to it.
-3. **Weekly scheduled task: to be created before submission.** Create the Claude scheduled task that runs
-   `publish_data.py --push` weekly (Monday about 06:30, in the background, reading `data/publish_report.json`; see §6).
-   Without it the "about once a week" wording on every page is false within a couple of weeks.
+3. **Weekly scheduled task: created; approve its permissions once.** The Claude scheduled task
+   `chicago-restaurants-weekly-data` runs `publish_data.py --push` on Mondays at 06:30 America/Chicago (prompt and rules:
+   `chi-eats/pipeline/ops/weekly-publish-task.md`; see §6). Until its tool permissions are approved (allow rules, or a
+   "Run now" answering "always allow" at each prompt), each run waits at its first prompt and publishes nothing, though
+   the task list may show "succeeded" (`chi-eats/ios/CLAUDE.md`, "Weekly data refresh"). Without a working weekly run
+   the "about once a week" wording on every page is false within a couple of weeks.
 
 The hub link: https://eatsranked.com/ is live over HTTPS (checked 2026-09-28: 200 from GitHub Pages, "Eats Ranked:
 Restaurant Grades & Rankings, State by State"), so every footer's "More states at eatsranked.com" works.
@@ -255,20 +277,19 @@ downloads newer data files when there are any, about once a week. The web versio
 `chi-eats/pipeline/publish_data.py`
 writes everything under `docs/data/v1/` (the manifest, content-addressed `chicago-<sha>.json` / `illinois-<sha>.json`
 files and `NOTICE.txt`), runs `playbook/tools/update_counts.py` to refresh the `data-stat` spans (§3), sitemap
-`lastmod` and Article `dateModified`, and runs §4 before it pushes. It is meant to run weekly from a Claude scheduled task
-(Monday morning) and publishes nothing if any gate fails.
+`lastmod` and Article `dateModified`, and runs §4 before it pushes. It runs weekly from the Claude scheduled task
+`chicago-restaurants-weekly-data` (Mondays 06:30 America/Chicago) and publishes nothing if any gate fails.
 
-**Status 2026-09-28: built, not live.** The scheduled task doesn't exist yet (it is to be created before submission),
-and nothing has been published: `docs/data/v1/` holds only `NOTICE.txt` and the live `manifest.json` is a 404. Both are
-blockers in §5 before build 1.0 (2) is submitted. Update this line once they're done.
+**Status 2026-10-05: live.** The first publish went live on 2026-10-05 (manifest version 2026-09-28.1, published
+2026-10-05T13:19:54Z), and the scheduled task exists; its tool permissions still need approving once (§5 step 3).
 
 - **`publish_data.py` is the only way to change `docs/data/`.** Never hand-edit, copy or delete files there, and never
-  commit them by hand: a wrong file reaches every installed app and every web visitor. **One exception, once:**
-  `docs/data/v1/NOTICE.txt`, which `publish_data.py` itself wrote while it was being tested on 2026-09-28, is committed
+  commit them by hand: a wrong file reaches every installed app and every web visitor. **One exception, once (done 2026-10-05):**
+  `docs/data/v1/NOTICE.txt`, which `publish_data.py` itself wrote while it was being tested on 2026-09-28, was committed
   unchanged with the pages in §5 step 1, because the script's preflight refuses any untracked file under `docs/` (it
   still names the old github.io address; the first publish rewrites it). From then on the script updates and commits it
   like every other file there. Weekly: `publish_data.py --push`.
-  First time: `--first --push`. To correct a wrong fact that's already published for the same records date:
+  First time (done): `--first --push`. To correct a wrong fact that's already published for the same records date:
   `publish_data.py --republish --push` (it publishes the corrected files as the next version of that date and runs every
   gate). `--dry-run` shows everything and writes nothing.
 - **Exit codes and statuses** (`chi-eats/data/publish_report.json` → `status`): **0** = `published`, `published_locally`
