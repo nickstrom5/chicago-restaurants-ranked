@@ -32,7 +32,9 @@ business in the next update.
 
 `docs/` is the public website, served by GitHub Pages at the custom domain in `docs/CNAME` (chicago.eatsranked.com; the old
 nickstrom5.github.io/chicago-restaurants-ranked/ address redirects there). `docs/data/` is written and committed only by
-the weekly publish script (`playbook/01-site-runbook.md` §6, which notes one exception before the first publish).
+the weekly publish script (`playbook/01-site-runbook.md` §6, which notes one exception before the first publish), and so are
+`docs/lists/`, `docs/neighborhoods/` and `docs/cuisines/`: static pages for search engines that
+`playbook/tools/static_pages.mjs` builds from that data at every publish (don't edit them by hand).
 Everything else (`playbook/`, `SCREENSHOTS-TODO.md`) is internal notes.
 
 © 2026 Nicholas Soderstrom.

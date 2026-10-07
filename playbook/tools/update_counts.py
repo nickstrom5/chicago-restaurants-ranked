@@ -20,6 +20,7 @@ Idempotent: a second run with the same manifest changes nothing.
   python3 playbook/tools/update_counts.py --dry-run              # print the changes; writes nothing
 """
 import os, re, sys, json, glob, argparse, datetime as dt
+from urllib.parse import urlparse
 
 DOCS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs")
 KEYS = ("places", "restaurants", "graded", "graded_floor", "illinois", "towns", "records_through")
@@ -105,7 +106,8 @@ def bump_sitemap(sitemap, pages, today):
 
     def one(m):
         loc = m.group(2)
-        page = next((p for p in pages if (p == "index.html" and loc.endswith("/")) or loc.endswith("/" + p)), None)
+        # index.html is the root URL only: other folders' pages (explore/, the data pages) aren't this script's
+        page = next((p for p in pages if (p == "index.html" and urlparse(loc).path in ("", "/")) or loc.endswith("/" + p)), None)
         if page is None or m.group(4) == today:
             return m.group(0)
         bumped.append(page)

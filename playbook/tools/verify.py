@@ -7,10 +7,14 @@ PAGES get every check. Every page in sitemap.xml, including ones built elsewhere
 site-wide ones in site_wide(): no old address, the hub link, canonical = og:url = its sitemap URL, JSON-LD that parses
 and points at the domain, no "every Chicago restaurant" claim, and the Content-Security-Policy meta (right after
 <meta charset>; script-src 'self' with a script file, 'none' without) with no inline script or event handler for it to
-block. Also /.well-known/security.txt (unexpired) and /favicon.ico."""
-import json, re, sys, urllib.request, urllib.error, html, datetime as dt
+block. Also /.well-known/security.txt (unexpired) and /favicon.ico.
+The data pages (lists/, neighborhoods/, cuisines/; playbook/tools/static_pages.mjs writes them from data/v1) get data_pages():
+the site-wide checks, every place they link in the published data, the intro's counts and each row's grade and latest
+result against that data, the area and cuisine order, noindex exactly when fewer than 20 places have a grade, and the
+sitemap, the index pages' links and the folders on disk (DOCS, default docs/ beside playbook/) naming the same pages."""
+import json, re, sys, urllib.request, urllib.error, html, hashlib, datetime as dt
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, unquote
 import os
 ROOT = os.environ.get("SITE_ROOT", "http://127.0.0.1:8791/")
 ROOT = ROOT if ROOT.endswith("/") else ROOT + "/"
@@ -217,10 +221,174 @@ for page in PAGES:
     if page == "":
         print("  index weight (html only):", len(body), "bytes")
         if len(body) > 150_000: bad("index too heavy")
+# ---- the data pages: written from data/v1 by playbook/tools/static_pages.mjs, so checked against the same data
+GEN = ("lists/", "neighborhoods/", "cuisines/")
+DOCS = os.environ.get("DOCS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs")
+THIN, ROWS = 20, 100                 # static_pages.mjs: noindex under THIN graded places; at most ROWS rows a page
+ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+def fmt_date(s):
+    """logic.js Fmt.date: "Sep 2, 2026", or "—" for anything that isn't a real yyyy-M-d day."""
+    m = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", s or "")
+    try: d = dt.date(int(m[1]), int(m[2]), int(m[3]))
+    except (TypeError, ValueError): return "—"
+    return f"{ABBR[d.month - 1]} {d.day}, {d.year}"
+def chicago_places():
+    """(records_through, {id: place}) from data/v1 as the web app reads it (manifest, bytes, sha256, rows; logic.js
+    parseChicago's columns: a row needs a string id and name; an index past its list is no value; no cuisine is
+    "American & Other"; a newer result only with a date after records_through)."""
+    st, mb = get(ROOT + "data/v1/manifest.json")
+    if st != 200: bad("data pages: data/v1/manifest.json", st); return None, {}
+    man = json.loads(mb); f = man["files"]["chicago"]
+    st, b = get(ROOT + "data/v1/" + f["path"])
+    if st != 200 or len(b) != f["bytes"] or hashlib.sha256(b).hexdigest() != f["sha256"]:
+        bad("data pages:", f["path"], "doesn't match the manifest"); return None, {}
+    j = json.loads(b); c = {k: i for i, k in reversed(list(enumerate(j["cols"])))}; meta = j.get("meta") or {}
+    rt = man["records_through"]
+    if meta.get("records_through") != rt or len(j["rows"]) != f["rows"]: bad("data pages:", f["path"], "rows or records date not the manifest's")
+    def v(r, k): return r[c[k]] if k in c and c[k] < len(r) else None
+    def s(r, k): x = v(r, k); return x if isinstance(x, str) and x else None
+    def num(r, k): x = v(r, k); return int(x) if isinstance(x, bool) else x if isinstance(x, (int, float)) else None
+    def pick(lst, i): return lst[int(i)] if i is not None and 0 <= int(i) < len(lst) else None
+    out = {}
+    for r in j["rows"]:
+        if not isinstance(r, list) or s(r, "id") is None or s(r, "name") is None: continue
+        nr, nd = s(r, "newerResult"), s(r, "newerDate")
+        newer = nr is not None and nd is not None and nd > rt
+        g = s(r, "grade"); sc = num(r, "score")
+        out[s(r, "id")] = {"hood": pick(meta.get("hoods") or [], num(r, "hood")), "venue": bool(num(r, "venue") and int(num(r, "venue"))),
+                           "cuisine": pick(meta.get("cuisines") or [], num(r, "cuisine")) or "American & Other",
+                           "grade": g if g in ("A", "B", "C", "D", "F") else None, "score": int(sc) if sc is not None else None,
+                           "lastDate": s(r, "lastDate"), "lastResult": s(r, "lastResult"),
+                           "newerDate": nd if newer else None, "newerResult": nr if newer else None}
+    return rt, out
+def result_lines(q):
+    """logic.js resultLine and newerLine, as each row shows them."""
+    label = "Latest in our records" if q["newerResult"] else "City's latest result"
+    out = [f"{label}: {q['lastResult'] or '—'}, {fmt_date(q['lastDate'])}"]
+    if q["newerResult"]: out.append(f"Newer City result: {q['newerResult']}, {fmt_date(q['newerDate'])}")
+    return out
+def data_pages():
+    rt, places = chicago_places()
+    if not places: return
+    shown = {i: q for i, q in places.items() if not q["venue"]}   # the web version's lists leave non-restaurants out
+    by = {"neighborhoods": {}, "cuisines": {}}
+    for i, q in shown.items():
+        if q["hood"]: by["neighborhoods"].setdefault(q["hood"], []).append(i)
+        by["cuisines"].setdefault(q["cuisine"], []).append(i)
+    lastmod = dict(re.findall(r"<loc>(.*?)</loc>\s*<lastmod>(.*?)</lastmod>", sitemap))
+    found, titles, descs = {}, {}, {}
+    todo = list(GEN)
+    while todo:
+        page = todo.pop(0)
+        if page in found: continue
+        st, body = get(ROOT + page)
+        if st != 200: bad(page, "status", st); found[page] = None; continue
+        src = body.decode("utf-8"); p = P(); p.feed(src); found[page] = src
+        site_wide(page, src, p)
+        name = page
+        metas = {(a.get("name") or a.get("property")): a.get("content") for t, a in p.tags if t == "meta"}
+        index = metas.get("robots") == "index,follow,max-image-preview:large"
+        if not index and metas.get("robots") != "noindex,follow": bad(name, "robots", metas.get("robots"))
+        if '<html lang="en">' not in src: bad(name, "lang")
+        if p.heads.count("h1") != 1: bad(name, "h1 count", p.heads.count("h1"))
+        for lm in ("header", "main", "nav", "footer"):
+            if not any(t == lm for t, _ in p.tags): bad(name, "missing landmark", lm)
+        title, desc = html.unescape(p.title).strip(), (metas.get("description") or "").strip()
+        if not title or not desc: bad(name, "title or description missing")
+        if title in titles: bad(name, "same title as", titles[title])
+        if desc in descs: bad(name, "same description as", descs[desc])
+        titles[title], descs[desc] = page, page
+        for w in ("lowest", "failed latest", "pest"):   # runbook §3: no negative list in a title or description
+            if w in (title + " " + desc).lower(): bad(name, "negative list named in the title or description:", repr(w))
+        crumbs = [json.loads(b) for b in p.ld if '"BreadcrumbList"' in b]
+        items = crumbs[0]["itemListElement"] if crumbs else []
+        if not items or items[-1].get("item") != BASE + page: bad(name, "BreadcrumbList doesn't end at the page"); continue
+        label = items[-1]["name"]
+        if re.findall(r'<time datetime="([^"]*)"', src) != [rt]: bad(name, "records date isn't", rt)
+        if index and lastmod.get(BASE + page) != rt: bad(name, "sitemap lastmod", lastmod.get(BASE + page), "should be", rt)
+        if not index and BASE + page in smurls: bad(name, "noindex but in the sitemap")
+        n = {k: int(x.replace(",", "")) for k, x in re.findall(r'<span data-n="(\w+)">([\d,]+)</span>', src)}
+        # links: places in the data, our pages found, everything internal answering
+        for t, a in p.tags:
+            h = a.get("href") if t in ("a", "link") else a.get("src")
+            if not h or h.startswith("mailto:") or (t == "link" and a.get("rel") == "canonical"): continue
+            full = site_url(ROOT + page, h); u = urlparse(full)
+            if u.netloc != HOST:
+                if t == "a" and "noopener" not in (a.get("rel") or ""): bad(name, "external link without noopener", h)
+                elif t != "a": bad(name, "external resource", h)
+                continue
+            path, frag = full[len(ROOT):].split("#")[0], u.fragment
+            if path == WEB_APP and frag.startswith("/place/"):
+                if unquote(frag[len("/place/"):]) not in places: bad(name, "links a place that isn't in the data:", frag)
+                continue
+            if get(full.split("#")[0])[0] != 200: bad(name, "broken internal", h)
+            if frag and not frag.startswith("/") and path == page and f'id="{frag}"' not in src: bad(name, "missing anchor", frag)
+            if path.startswith(GEN) and path.endswith("/") and path not in found and path not in todo: todo.append(path)
+        rows = re.findall(r"<li><a class=\"rrow\" href=\"[^\"]*explore/#/place/([^\"]+)\">(.*?)</a></li>", src)
+        ids = [unquote(i) for i, _ in rows]
+        if len(set(ids)) != len(ids): bad(name, "a place listed twice")
+        kind, slug = page.split("/")[0], page.split("/")[1] if page.count("/") > 1 else ""
+        if not slug:   # an index page
+            kids = sorted({h for h in re.findall(r'href="\.\./' + kind + r'/([^"/]+)/"', src)})
+            if kind != "lists":
+                groups = by[kind]
+                want = {"places": sum(len(v) for v in groups.values()), kind if kind == "cuisines" else "areas": len(groups),
+                        "graded": sum(1 for v in groups.values() for i in v if shown[i]["grade"]),
+                        "A": sum(1 for v in groups.values() for i in v if shown[i]["grade"] == "A")}
+                for k, x in want.items():
+                    if n.get(k) != x: bad(name, f"intro says {k} {n.get(k)}, the data has {x}")
+                if len(kids) != len(groups): bad(name, len(kids), "pages linked,", len(groups), kind, "in the data")
+            elif n.get("lists") != len(kids): bad(name, "intro says", n.get("lists"), "lists,", len(kids), "linked")
+            continue
+        if len(ids) > ROWS: bad(name, len(ids), "rows, more than", ROWS)
+        if kind == "lists":
+            total = n.get("places") or 0
+            if len(ids) != min(ROWS, total) or ("shown" in n) != (total > ROWS): bad(name, "rows", len(ids), "for", total, "places")
+            ranks = [int(x) for x in re.findall(r'<span class="sr">Rank </span>(\d+)</span>', src)]
+            if ranks != list(range(1, len(ids) + 1)): bad(name, "ranks aren't 1 to", len(ids))
+            for i, (_, row) in zip(ids, rows):
+                q = places.get(i)
+                if not q or q["venue"]: bad(name, "row", i, "isn't a listed place"); continue
+                g = re.findall(r'class="g g([A-F])"', row)
+                if g and g != [q["grade"]]: bad(name, "row", i, "shows grade", g, "the data has", q["grade"])
+            continue
+        group = sorted(by[kind].get(label) or [], key=lambda i: -(shown[i]["score"] if shown[i]["score"] is not None else -1))
+        want = {"places": len(group), "graded": sum(1 for i in group if shown[i]["grade"])}
+        want.update({g: sum(1 for i in group if shown[i]["grade"] == g) for g in "ABCDF"} if want["graded"] else {})
+        for k, x in want.items():
+            if n.get(k) != x: bad(name, f"intro says {k} {n.get(k)}, the data has {x} for {label}")
+        if index != (want["graded"] >= THIN): bad(name, "indexed" if index else "noindex", "with", want["graded"], "graded places (the line is", THIN, ")")
+        if len(ids) != min(ROWS, len(group)) or ("shown" in n) != (len(group) > ROWS): bad(name, "rows", len(ids), "for", len(group), "places")
+        scores = [shown[i]["score"] if i in shown and shown[i]["score"] is not None else -1 for i in ids]
+        if scores != sorted(scores, reverse=True): bad(name, "rows aren't best score first")
+        for i, (_, row) in zip(ids, rows):
+            q = shown.get(i)
+            if not q or (q["hood"] if kind == "neighborhoods" else q["cuisine"]) != label: bad(name, "row", i, "isn't a", label, "place"); continue
+            g = re.findall(r'class="g g([A-F])', row)
+            if g != ([q["grade"]] if q["grade"] else []): bad(name, "row", i, "shows grade", g, "the data has", q["grade"])
+            lines = [html.unescape(x) for x in re.findall(r'<span class="rres">(.*?)</span>', row)]
+            exp = result_lines(q) if q["grade"] else ["No grade yet: no completed inspections since January 2023."] + (result_lines(q)[:1] if q["lastDate"] else [])
+            if lines != exp: bad(name, "row", i, "says", lines, "the data says", exp)
+    pages = {pg for pg, src in found.items() if src is not None}
+    indexed = {pg for pg in pages if 'content="index,follow' in found[pg]}
+    in_map = {u[len(BASE):] for u in smurls if u[len(BASE):].startswith(GEN)}
+    if in_map != indexed: bad("sitemap and data pages differ:", sorted(in_map ^ indexed)[:10])
+    if os.path.isdir(DOCS):
+        disk = set()
+        for d in GEN:
+            for dp, _, fns in os.walk(os.path.join(DOCS, d)):
+                for fn in fns:
+                    rel = os.path.relpath(os.path.join(dp, fn), DOCS).replace(os.sep, "/")
+                    if fn != "index.html": bad("docs/" + rel, "isn't a data page (static_pages.mjs owns", ", ".join(GEN) + ")")
+                    else: disk.add(rel[:-len("index.html")])
+        if disk != pages: bad("data pages on disk and linked differ:", sorted(disk ^ pages)[:10])
+    else: print("  (DOCS", DOCS, "not found: folders not compared)")
+    print(f"\n== data pages: {len(pages)} ({len(indexed)} in the sitemap, {len(pages) - len(indexed)} noindex), records through {rt}")
+data_pages()
 # every other page in the sitemap (built elsewhere, like the web version): the site-wide checks only
 for u in smurls:
     page = u[len(BASE):]
-    if page in PAGES or not (page == "" or page.endswith(("/", ".html"))): continue
+    if page in PAGES or page.startswith(GEN) or not (page == "" or page.endswith(("/", ".html"))): continue
     st, body = get(ROOT + page); print(f"\n== {page} [{st}] {len(body)} bytes (sitemap page: site-wide checks)")
     if st != 200: continue   # reported with the sitemap URLs above
     src = body.decode("utf-8"); p = P(); p.feed(src)

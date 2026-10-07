@@ -8,9 +8,14 @@ Internal notes. This folder is **not** published; only `docs/` is.
 - Web version: https://chicago.eatsranked.com/explore/ (`docs/explore/`, built separately; it reads the same
   `docs/data/v1/` files as the app). The header nav on every page ("Search on the web"), the home page, the sitemap and
   the support and privacy pages link to it.
+- Data pages: `docs/lists/` (the web version's rankings), `docs/neighborhoods/` (one page per community area) and
+  `docs/cuisines/` (one per cuisine group): static, JavaScript-free pages for search engines, written from the published
+  data by `playbook/tools/static_pages.mjs` (§6), never by hand. Every footer links to `lists/`, `neighborhoods/` and
+  `cuisines/`; the home page's boards section and the web version's footer do too.
 - Hub: https://eatsranked.com/ (the other states). Every footer has "More states at eatsranked.com".
 - Repo: https://github.com/nickstrom5/chicago-restaurants-ranked (public; support is by email, work-with-nick@gmail.com, with GitHub Issues as a public option)
 - Static HTML, inline CSS, no build step, no third-party scripts, fonts or tracking. `docs/*.html` is the source of truth.
+  The data pages share `docs/pages.css` (the guide pages' look, with the web version's list rows).
 
 ## 1. Publish
 
@@ -63,7 +68,8 @@ Do these once the site is live.
   submit `https://chicago.eatsranked.com/sitemap.xml`. `robots.txt` names it too.
 - **Request indexing:** URL Inspection → paste the home page URL → Request indexing. Repeat for the web version
   (`explore/`) and the three guides: `how-chicago-restaurant-inspections-work.html`,
-  `look-up-chicago-restaurant-inspections.html`, `chicago-restaurant-grades.html`.
+  `look-up-chicago-restaurant-inspections.html`, `chicago-restaurant-grades.html`, and the data pages' three index pages
+  (`lists/`, `neighborhoods/`, `cuisines/`); the sitemap carries the rest of the data pages (about a hundred).
 - **Bing Webmaster Tools** (bing.com/webmasters): "Import from Google Search Console" is the quickest. Otherwise add the
   same URL and verify with the `msvalidate.01` meta tag or a `BingSiteAuth.xml` file in `docs/`. Submit the same sitemap,
   and use URL Submission for the home page and guides.
@@ -94,6 +100,9 @@ Rules for anyone editing `docs/`.
   | `records_through` | City records date | `September 21, 2026` |
 
   Rules:
+  - **The data pages are the exception to this whole section.** `static_pages.mjs` writes their titles, descriptions,
+    intros and rows from the same manifest at every publish, so they carry exact counts and the records date anywhere
+    (marked `data-n` and `<time datetime>` for `verify.py`, not `data-stat`; `update_counts.py` reads only `docs/*.html`).
   - **`<head>` carries no exact counts or dates** (title, meta description, og/twitter, JSON-LD). The one data number
     allowed there is the `graded_floor` text ("7,600+"), which `update_counts.py` swaps in `<head>` too; any other
     "N,NNN+" in a `<head>` makes it fail. Today no `<head>` has one. Page edit dates are not data and are not spans:
@@ -158,7 +167,12 @@ Rules for anyone editing `docs/`.
   paraphrase or drop it; new pages copy the footer as is.
 - **No negative lists in marketing.** No Worst inspections / Recently failed / Pest citations board, and no D or F place,
   in screenshots, `og.png`, page titles or meta descriptions (app-review-risk.md L5, S6). Describe those boards
-  neutrally in body copy ("lowest inspection scores", "failed latest inspection").
+  neutrally in body copy ("lowest inspection scores", "failed latest inspection"). That's why `static_pages.mjs` makes
+  no page for the Lowest scores, Failed latest or Pest citations boards (`lists/` points to them in the web version), and
+  names no place in a title or description; `verify.py` fails a data page whose title or description names one of those
+  lists. The neighborhood and cuisine pages list every grade in body rows that follow S6: street address, the latest
+  City result in the City's words with its date, our grade labelled as ours, and a link to the place's page (which links
+  its official record).
 - **Legal pages** (`privacy.html`, `terms.html`) were drafted, not reviewed by a lawyer. Keep them in step with the app:
   if the app ever adds analytics, crash reporting, an account or anything that collects data, update `privacy.html` and
   the App Store privacy label **before** that version ships. The weekly data download (build 1.0 (2)) is described in
@@ -283,8 +297,32 @@ downloads newer data files when there are any, about once a week. The web versio
 `chi-eats/pipeline/publish_data.py`
 writes everything under `docs/data/v1/` (the manifest, content-addressed `chicago-<sha>.json` / `illinois-<sha>.json`
 files and `NOTICE.txt`), runs `playbook/tools/update_counts.py` to refresh the `data-stat` spans (§3), sitemap
-`lastmod` and Article `dateModified`, and runs §4 before it pushes. It runs weekly from the Claude scheduled task
-`chicago-restaurants-weekly-data` (Mondays 06:30 America/Chicago) and publishes nothing if any gate fails.
+`lastmod` and Article `dateModified`, then `playbook/tools/static_pages.mjs` (the data pages below), and runs §4 before it
+pushes. It runs weekly from the Claude scheduled task `chicago-restaurants-weekly-data` (Mondays 06:30 America/Chicago)
+and publishes nothing if any gate fails.
+
+**The data pages** (`lists/`, `neighborhoods/`, `cuisines/`; SEO-07 phase 1, 2026-10-07). `static_pages.mjs` (Node 22+;
+`publish_data.py` finds `node` on PATH or in `/usr/local/bin` or `/opt/homebrew/bin`, and fails its `static_pages` gate
+without one) loads the data exactly as the web version does (manifest, size, sha256, rows, records date) and takes
+everything from `docs/explore/logic.js`, the port `check_logic.mjs` tests against the app's Swift: board membership,
+order and metrics, explainers, and each area or cuisine list in the order the web version's Search shows it. Each page
+shows at most 100 rows and links to the full list in the web version; every row links to `explore/#/place/<license>`.
+An area or cuisine with fewer than 20 graded places gets a `noindex,follow` page outside the sitemap (9 areas on the
+September 28 data). The script owns those three folders: it rewrites every page, deletes anything else in them (an area
+that leaves the data loses its page) and rewrites only its own `sitemap.xml` entries, with `lastmod` = the records date.
+It's deterministic: the same data writes the same bytes. `publish_data.py` runs it on the staging copy after
+`update_counts.py`, so the pages change only with a publish, inside the same all-or-nothing write as the data. By hand
+(after editing it, `docs/pages.css` or `logic.js`; then commit and push like any page edit, §3):
+
+```bash
+node playbook/tools/static_pages.mjs            # writes docs/lists, docs/neighborhoods, docs/cuisines and their sitemap entries
+node playbook/tools/static_pages.mjs --check    # exit 1 if anything is out of date; writes nothing
+```
+
+`verify.py` checks every data page: the site-wide checks, every linked place id in the published data, the intro's counts,
+each area and cuisine row's grade and latest City result against the data, best-score-first order, noindex exactly
+below 20 graded places, the records date, and that `sitemap.xml`, the index pages' links and the folders on disk
+(`DOCS`, default `docs/`; `publish_data.py` passes its staging copy) name the same pages.
 
 **Status 2026-10-05: live.** The first publish went live on 2026-10-05 (manifest version 2026-09-28.1, published
 2026-10-05T13:19:54Z), and the scheduled task exists; its tool permissions still need approving once (§5 step 3).
