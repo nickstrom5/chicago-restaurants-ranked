@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search Chicago Restaurant Grades, Map &amp; Rankings | Chi Ranked</title>
 <meta name="description" content="Search nearly every Chicago restaurant by name, street, cuisine or ZIP. Our A–F grades from City inspection records, ranked lists and a map. Free, no ads.">
@@ -25,9 +26,11 @@
 <meta name="twitter:title" content="Search Chicago Restaurant Grades, Map &amp; Rankings | Chi Ranked">
 <meta name="twitter:description" content="Search nearly every Chicago restaurant by name, street, cuisine or ZIP. Our A–F grades from City inspection records, ranked lists and a map. Free, no ads.">
 <meta name="twitter:image" content="https://chicago.eatsranked.com/og.png">
+<meta name="twitter:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped.">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="manifest" href="../site.webmanifest">
 <link rel="stylesheet" href="app.css">
 <script type="application/ld+json">
 {
@@ -36,7 +39,8 @@
  "name": "Chicago Restaurants: Ranked web app",
  "alternateName": "Chi Ranked",
  "url": "https://chicago.eatsranked.com/explore/",
- "applicationCategory": "TravelApplication",
+ "applicationCategory": "LifestyleApplication",
+ "applicationSubCategory": "Food & Drink",
  "operatingSystem": "Any",
  "browserRequirements": "Requires JavaScript",
  "isAccessibleForFree": true,
@@ -145,7 +149,7 @@
     <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
     <p class="fine">City of Chicago data disclaimer: This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one’s own risk.</p>
     <p class="fine">Inspection and license records: City of Chicago Data Portal. Property values: Cook County Assessor’s Office. Restaurant websites and places outside Chicago: Overture Maps Foundation (CDLA Permissive 2.0, Apache 2.0, CC0). Map outlines: City of Chicago Data Portal; Illinois outline © OpenStreetMap contributors (ODbL), via Overture Maps. No cookies, no analytics.</p>
-    <p class="fine"><a href="https://eatsranked.com/" rel="noopener">More states at eatsranked.com</a></p>
+    <p class="fine"><a class="hub" href="https://eatsranked.com/" rel="noopener">More states at eatsranked.com</a></p>
     <p class="fine">© 2026 Nicholas Soderstrom. Made in Chicago.</p>
   </div>
 </footer>

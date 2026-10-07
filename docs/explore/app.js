@@ -346,7 +346,9 @@ function render(opts = {}) {
   }
 }
 
-/** Only a page with the data on it is worth indexing: an error state tells crawlers not to. */
+/** Only a page with the data on it is worth indexing: when the data isn't published at all, the page tells crawlers not to.
+ *  A fetch that failed (offline, a timeout, a checksum caught mid-update) leaves the tag alone: it passes, and a crawler's
+ *  render that happened to hit one shouldn't drop the page from search. */
 const ROBOTS = document.querySelector('meta[name="robots"]');
 const ROBOTS_ON = ROBOTS ? ROBOTS.content : "";
 function setRobots(ok) { if (ROBOTS) ROBOTS.content = ok ? ROBOTS_ON : "noindex"; }
@@ -354,7 +356,7 @@ function setRobots(ok) { if (ROBOTS) ROBOTS.content = ok ? ROBOTS_ON : "noindex"
 function renderLoading(view) {
   if (state.error) {
     const missing = state.error === "missing", offline = state.error === "offline";
-    setRobots(false);      // the page's own title stays: a crawler shouldn't file this URL under "Data unavailable"
+    if (missing) setRobots(false);      // the page's own title stays: a crawler shouldn't file this URL under "Data unavailable"
     view.innerHTML = `<section class="view"><div class="empty" role="alert">${icon("warn")}
       <h1 class="h1">${missing ? "The restaurant data isn't published yet" : offline ? "Can't reach the restaurant data" : "The restaurant data didn't load"}</h1>
       <p>${missing ? "The web app reads the same weekly data files as the iPhone app, and they aren't on this site yet. Please check back soon."
@@ -510,6 +512,10 @@ function syncFilters(panel, f) {
   const cr = panel.querySelector("[data-clearrow]"); if (cr) cr.hidden = L.activeCount(f) === 0;
 }
 const filterButton = (f, open) => `<button class="btn small" type="button" data-toggle-filters aria-expanded="${open}">${icon("filter")}<span>${L.activeCount(f) ? `Filters (${L.activeCount(f)})` : "Filters"}</span></button>`;
+/** Skip to filters: on a wide screen the filters come after the list in Tab order (placeSide), up to 100 rows later, so a
+ *  link just before the list (shown when it has focus) goes to the filters' heading; Tab then goes on to the first filter. */
+const skipToFilters = (panelId) => `<a class="skip-inline d-only" href="#${panelId}" data-skip-filters>Skip to filters</a>`;
+function focusFilters(root) { const h = root.querySelector(".colside .fpanel h2"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); } }
 
 // ------------------------------------------------------------------------------------------------ home (HomeView.swift)
 function viewHome(view, route) {
@@ -530,7 +536,8 @@ function viewHome(view, route) {
   view.innerHTML = `<section class="view home">
     <div class="hero">
       <div><span class="capsule" aria-hidden="true"></span>
-        <h1 aria-label="Chicago Restaurants: Ranked"><span aria-hidden="true">Chicago<br>Restaurants:<br>Ranked</span></h1>
+        <p class="display mark" aria-hidden="true">Chicago<br>Restaurants:<br>Ranked</p>
+        <h1>Search Chicago restaurant grades</h1>
         <p class="tag">Food map &amp; our A–F grades</p>
         <p class="lede">Nearly every restaurant, café and tavern the City of Chicago inspects, graded and ranked${ilN != null && towns != null ? `, plus ${n(ilN)} restaurants in ${n(towns)} more Illinois towns` : ", plus restaurants across the rest of Illinois"}.</p>
       </div>
@@ -540,7 +547,7 @@ function viewHome(view, route) {
       </aside>
     </div>
     <h2 class="sr">Lists</h2>
-    <ul class="cards">${cards}</ul>
+    <ul role="list" class="cards">${cards}</ul>
     <button class="btn surprise" type="button" id="surprise">${icon("dice")}<span>Surprise me with an A-grade spot</span></button>
     <p class="home-fine">Grades are ours, calculated from City of Chicago inspection records, not official City grades. Every list is built from public records: City inspections and licenses, the Cook County Assessor and hand-checked honors.</p>
     <p class="home-fine"><a href="#/about">See About for sources and disclaimers</a></p>
@@ -577,6 +584,7 @@ function viewBoard(view, route) {
           <span id="bfbtn" class="m-only"></span></div>
         ${board !== "honors" ? `<p class="cap">${GRADES_CAPTION}</p>` : ""}
         ${L.NOTES[board] ? `<p class="cap">${esc(L.NOTES[board])}</p>` : ""}
+        ${skipToFilters("bpanel")}
       </div>
       <div class="colbody" id="blist"></div>
       <aside class="colside" aria-label="About this list and filters">
@@ -601,7 +609,7 @@ function viewBoard(view, route) {
     if (!list.length) {
       html = `<div class="empty">${icon("filter")}<h2>Nothing matches</h2><p>No places on this board match your filters.</p><div class="row"><button class="btn solid" type="button" data-clear>Clear filters</button></div></div>`;
     } else {
-      html = `<ol class="rlist">${list.slice(0, shown).map((p, i) => rankRow(p, i, board)).join("")}</ol>${moreButton(list.length, shown, CAP)}`;
+      html = `<ol role="list" class="rlist">${list.slice(0, shown).map((p, i) => rankRow(p, i, board)).join("")}</ol>${moreButton(list.length, shown, CAP)}`;
       if (list.length > CAP && shown >= CAP) html += `<p class="cap">Showing the top ${n(CAP)} of ${n(list.length)}. Use filters or Search to find the rest.</p>`;
     }
     $("#blist").innerHTML = html;
@@ -617,6 +625,7 @@ function viewBoard(view, route) {
     }
     else if (e.target.closest("[data-more]")) { const was = state.shown; state.shown += 100; draw(); const li = $("#blist").querySelectorAll(".rrow")[was]; if (li) li.focus(); }
     else if (e.target.closest("[data-clear]")) { setF(L.newFilters()); syncFilters(panel, f); }
+    else if (e.target.closest("[data-skip-filters]")) { e.preventDefault(); focusFilters(root); }
     else if (e.target.closest("#binfo")) {
       state.showInfo = !state.showInfo;
       $("#bexp").classList.toggle("closed", !state.showInfo);
@@ -627,6 +636,8 @@ function viewBoard(view, route) {
   // bring this list's chip into view on a phone, without scrollIntoView (Chrome would start Tab from the chip)
   const strip = $("#bchips"), cur = strip.querySelector("[aria-current]");
   if (cur && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = Math.max(0, cur.offsetLeft - (strip.clientWidth - cur.offsetWidth) / 2);
+  // a chip that gets focus half off the edge of the strip scrolls fully into view (the browser only scrolls once it's all off)
+  strip.addEventListener("focusin", (e) => { const a = e.target.closest("a"); if (a) a.scrollIntoView({ inline: "nearest", block: "nearest" }); });
 }
 
 // ------------------------------------------------------------------------------------------------ search (SearchTab.swift)
@@ -636,7 +647,7 @@ function viewSearch(view, route) {
   view.innerHTML = `<section class="view search"><div class="cols">
     <div class="colhead"><span class="kicker" id="skick"></span><h1 class="h1" id="stitle"></h1>
       <div class="countline" id="shead"><p class="n" id="scount" aria-live="polite"></p><span class="spacer"></span><span class="m-only" id="sfbtn"></span><span id="snear"></span></div>
-      <p class="cap" id="scap" hidden></p></div>
+      <p class="cap" id="scap" hidden></p>${skipToFilters("spanel")}</div>
     <div class="colbody" id="sbody"></div>
     <aside class="colside" aria-label="Filters"><div class="fpanel${state.filtersOpen ? "" : " closed"}" id="spanel"></div></aside></div></section>`;
   const root = view.firstElementChild;
@@ -657,8 +668,9 @@ function viewSearch(view, route) {
     const d = D();
     const text = q.trim();
     const showsSuggestions = !text && !near && L.activeCount(f) === 0;
-    // a redraw keeps focus on the same row or button
+    // a redraw keeps focus on the same row or button, and in the Near me panel while it changes (Try again, Finding you…, the result)
     const act = document.activeElement, keep = act && root.contains(act) && $("#sbody").contains(act) ? act.getAttribute("href") : null;
+    const keepLoc = !!(act && $("#sbody").contains(act) && act.closest("[data-loc]"));
     document.title = near ? "Restaurants near me | Chi Ranked" : text ? `“${text}” · Search ${scope === "chicago" ? "Chicago" : "the rest of Illinois"} | Chi Ranked` : "Search | Chi Ranked";
     $("#skick").textContent = near ? "Chicago and the rest of Illinois" : scope === "chicago" ? "Chicago" : "Rest of Illinois";
     $("#stitle").textContent = near ? "Near me" : text ? "Search" : scope === "chicago" ? "Search Chicago restaurants" : "Search the rest of Illinois";
@@ -702,7 +714,9 @@ function viewSearch(view, route) {
     }
     // header: count, filters, and one caption line
     const count = point ? (outOfArea != null ? "Near me" : "Nearest first") : !listed ? "Near me" : plural(total, "place", "places");
-    setCount(`${count}${L.activeCount(f) ? " <span>· filtered</span>" : ""}`);
+    // Closest matches only: the count stays "0 places" (the app's), and a screen reader also hears that there's a list below
+    const closestNote = closest.length && !places.length && !pendingOrder ? `<span class="sr"> · no exact match, ${plural(closest.length, "closest match", "closest matches")} below</span>` : "";
+    setCount(`${count}${L.activeCount(f) ? " <span>· filtered</span>" : ""}${closestNote}`);
     setShowCount(panel, listed ? total : null);
     const hasGrades = places.some((p) => p.grade != null) || closest.some((p) => p.grade != null);
     let cap = null;
@@ -725,7 +739,7 @@ function viewSearch(view, route) {
     }
     if (places.length && !pendingOrder) {
       const shown = Math.min(state.shown, places.length);
-      html += `<ol class="rlist">${places.slice(0, shown).map((p) => searchRow(p, point ? L.distance(p, point) : null)).join("")}</ol>`;
+      html += `<ol role="list" class="rlist">${places.slice(0, shown).map((p) => searchRow(p, point ? L.distance(p, point) : null)).join("")}</ol>`;
       html += moreButton(places.length, shown, L.SEARCH_LIMIT);
       if (shown >= places.length && total > places.length) html += `<p class="cap">Showing the first ${n(places.length)} of ${n(total)}. Add a word, a neighborhood or a filter to narrow it.</p>`;
     }
@@ -739,10 +753,14 @@ function viewSearch(view, route) {
         + ((L.activeCount(f) || (!near && text)) ? `<div class="row">${L.activeCount(f) ? `<button class="btn small" type="button" data-clear-filters>Clear filters</button>` : ""}`
           + (!near && text ? `<a class="btn small" href="${searchHash({ q, scope: other })}">Search ${other === "chicago" ? "Chicago" : "Rest of Illinois"}</a>` : "") + `</div>` : "")
         + `<h3 class="flabel" id="closest-h">Closest matches</h3></div>`;
-      html += `<ol class="rlist closest" aria-labelledby="closest-h">${closest.map((p) => searchRow(p, null, "", true)).join("")}</ol>`;
+      html += `<ol role="list" class="rlist closest" aria-labelledby="closest-h">${closest.map((p) => searchRow(p, null, "", true)).join("")}</ol>`;
     }
     $("#sbody").innerHTML = html;
     if (keep) { const again = [...$("#sbody").querySelectorAll("a[href]")].find((a) => a.getAttribute("href") === keep); if (again) again.focus({ preventScroll: true }); }
+    if (keepLoc) {
+      const again = $("#sbody [data-locate]") || $("#sbody [data-loc]");
+      if (again) { if (!again.matches("button")) again.setAttribute("tabindex", "-1"); again.focus({ preventScroll: true }); } else focusHeading(view);
+    }
     fitSide();
     syncSheet();
   };
@@ -753,10 +771,10 @@ function viewSearch(view, route) {
     let html = `<p><button class="btn solid nearbtn" type="button" data-near>${icon("location")}<span>Restaurants near me</span></button></p>`;
     if (scope === "chicago") {
       html += `<p class="note">Search nearly every Chicago restaurant by name, street, cuisine, neighborhood or ZIP${ilN != null ? `. Or switch to Rest of Illinois to search ${n(ilN)} restaurants in ${n(towns)} more towns` : ""}.</p>`;
-      html += `<h2 class="flabel">Try</h2><ul class="try">${TRY.map((s) => `<li><a href="${searchHash({ q: s })}">${icon("search")}${esc(s)}</a></li>`).join("")}</ul>`;
+      html += `<h2 class="flabel">Try</h2><ul role="list" class="try">${TRY.map((s) => `<li><a href="${searchHash({ q: s })}">${icon("search")}${esc(s)}</a></li>`).join("")}</ul>`;
     } else {
       html += `<p class="note">${ilN != null ? `Search ${n(ilN)} restaurants in ${n(towns)} more Illinois towns. ` : ""}No grades outside Chicago: the City inspects only Chicago restaurants. Switch to Chicago to search Chicago restaurants.</p>`;
-      html += `<h2 class="flabel">Biggest towns</h2><ul class="try">${d.cities.slice(0, 12).map((c) => `<li><a href="${searchHash({ q: c, scope: "illinois" })}">${icon("building")}${esc(c)}</a></li>`).join("")}</ul>`;
+      html += `<h2 class="flabel">Biggest towns</h2><ul role="list" class="try">${d.cities.slice(0, 12).map((c) => `<li><a href="${searchHash({ q: c, scope: "illinois" })}">${icon("building")}${esc(c)}</a></li>`).join("")}</ul>`;
     }
     html += `<p class="note">Or browse the <a href="#/">rankings</a> or the <a href="${mapHash(scope, null)}">map</a>.</p>`;
     $("#sbody").innerHTML = html;
@@ -771,6 +789,7 @@ function viewSearch(view, route) {
     else if (t.closest("[data-near]")) { requestLocation(); go(searchHash({ near: true })); }
     else if (t.closest("[data-locate]")) { requestLocation(); draw(); }
     else if (t.closest("[data-clear-near]")) go(searchHash({ q: ctx.q }));
+    else if (t.closest("[data-skip-filters]")) { e.preventDefault(); focusFilters(root); }
   });
   state.onGeo = () => { if (ctx && ctx.near) draw(); };
   state.cleanup = () => { state.onGeo = null; };
@@ -778,12 +797,13 @@ function viewSearch(view, route) {
   ctx = read(route);
   draw();
 }
+/** The Near me panel. data-loc marks it, so a redraw keeps focus in it; its errors are alerts, so a screen reader hears them. */
 function locationPanel(status) {
-  if (status === "locating") return `<p class="note" aria-live="polite"><span class="spin" aria-hidden="true"></span>Finding you…</p>`;
-  if (status === "denied") return `<div class="panel-note"><p>Location is off for this site. You can still browse by neighborhood or search a ZIP code, or allow location for this site in your browser's settings and try again.</p><div class="row"><button class="btn small" type="button" data-locate>Try again</button></div></div>`;
-  if (status === "failed") return `<div class="panel-note"><p>Couldn't find your location. Check that you have a signal and try again, or browse by neighborhood or search a ZIP code.</p><div class="row"><button class="btn small" type="button" data-locate>Try again</button></div></div>`;
-  if (status === "unsupported") return `<div class="panel-note"><p>This browser can't share its location. You can still browse by neighborhood or search a ZIP code.</p></div>`;
-  return `<div class="panel-note"><h2>Restaurants near you</h2><p>Sorted by distance from where you are. Your location is used only in this browser and is never stored or sent anywhere.</p><div class="row"><button class="btn solid small" type="button" data-locate>${icon("location")}<span>Use my location</span></button></div></div>`;
+  if (status === "locating") return `<p class="note" aria-live="polite" data-loc><span class="spin" aria-hidden="true"></span>Finding you…</p>`;
+  if (status === "denied") return `<div class="panel-note" role="alert" data-loc><p>Location is off for this site. You can still browse by neighborhood or search a ZIP code, or allow location for this site in your browser's settings and try again.</p><div class="row"><button class="btn small" type="button" data-locate>Try again</button></div></div>`;
+  if (status === "failed") return `<div class="panel-note" role="alert" data-loc><p>Couldn't find your location. Check that you have a signal and try again, or browse by neighborhood or search a ZIP code.</p><div class="row"><button class="btn small" type="button" data-locate>Try again</button></div></div>`;
+  if (status === "unsupported") return `<div class="panel-note" role="alert" data-loc><p>This browser can't share its location. You can still browse by neighborhood or search a ZIP code.</p></div>`;
+  return `<div class="panel-note" data-loc><h2>Restaurants near you</h2><p>Sorted by distance from where you are. Your location is used only in this browser and is never stored or sent anywhere.</p><div class="row"><button class="btn solid small" type="button" data-locate>${icon("location")}<span>Use my location</span></button></div></div>`;
 }
 
 /** Location, only when someone taps Near me or Show my location. Kept in memory for this visit; never stored or sent. */
@@ -847,8 +867,8 @@ function viewPlace(view, route) {
     if (m <= L.NEAR_RADIUS) { const lab = L.distLabel(m); head += `<p class="pdist">${icon("location")}${lab === "nearby" ? "Nearby" : esc(lab) + " away"}</p>`; }
   }
   const actions = [
-    maps ? `<a class="act" href="${esc(maps)}" target="_blank" rel="noopener">${icon("directions")}<span>Directions</span></a>` : "",
-    p.web ? `<a class="act" href="${esc(p.web)}" target="_blank" rel="noopener nofollow">${icon("compass")}<span>Website</span></a>` : "",
+    maps ? `<a class="act" href="${esc(maps)}" target="_blank" rel="noopener">${icon("directions")}<span>Directions</span><span class="sr"> (opens in a new tab)</span></a>` : "",
+    p.web ? `<a class="act" href="${esc(p.web)}" target="_blank" rel="noopener nofollow">${icon("compass")}<span>Website</span><span class="sr"> (opens in a new tab)</span></a>` : "",
     `<button class="act" type="button" id="share">${icon("share")}<span>Share</span></button>`,
     // the app's labels: the name says what a tap does ("Remove from Saved"), so no pressed state to contradict it
     `<button class="act${saved ? " on" : ""}" type="button" id="save" aria-label="${saved ? "Remove from Saved" : "Save place"}">${icon("bookmark")}<span>${saved ? "Saved" : "Save"}</span></button>`,
@@ -869,13 +889,13 @@ function viewPlace(view, route) {
     insp += `<dl class="kv">` + kv("City risk category", p.risk != null ? ["", "High", "Medium", "Low"][Math.min(Math.max(p.risk, 0), 3)] : "—") + `</dl>`;
     insp += noteP("Risk category is how often the City schedules inspections, based on the kind of food handling (High = most often). It is not a safety rating.");
     insp += noteP(`Source: City of Chicago Food Inspections, records through ${L.Fmt.date(d.recordsThrough)}. License #${p.id}. Scores weigh failed inspections, pest citations, serious violations, violations per visit, passes with conditions and whether the last visit failed; places with few visits are pulled toward the city average. Our score and grade are not official.`);
-    insp += `<div class="extlinks"><a href="${esc(L.cityRecordsURL(p.id))}" target="_blank" rel="noopener">${icon("external")}City inspection records</a>`
+    insp += `<div class="extlinks"><a href="${esc(L.cityRecordsURL(p.id))}" target="_blank" rel="noopener">${icon("external")}City inspection records<span class="sr"> (opens in a new tab)</span></a>`
       + `<a href="${esc(L.reportURL(p))}">${icon("mail")}Report a problem with this listing</a></div>`;
     body += section("Health inspections · since Jan 2023", insp);
     if (p.icon != null || p.isHonored || p.honors != null) {
       const list = L.honorsList(p);
       body += section("Honors & history", (p.icon != null ? `<p class="icon-text">${esc(p.icon)}</p>` : "")
-        + (list.length ? `<ul class="honors">${list.map((h) => `<li>${icon("rosette")}<span>${esc(h)}</span></li>`).join("")}</ul>` : ""));
+        + (list.length ? `<ul role="list" class="honors">${list.map((h) => `<li>${icon("rosette")}<span>${esc(h)}</span></li>`).join("")}</ul>` : ""));
     }
     body += section("License", `<dl class="kv">` + (p.aka != null ? kv("Also on City records as", p.aka) : "")
       + kv(p.sinceVerified ? "Opened" : "First city record", p.sinceFloor ? "2002 or earlier" : p.since != null ? String(p.since) : "—")
@@ -904,7 +924,7 @@ function viewPlace(view, route) {
   view.innerHTML = `<article class="view place"><div class="pgrid">
     <div class="phead"><p class="back"><button class="linkbtn" type="button" id="back">${icon("back")}<span>Back</span></button></p>${head}</div>
     <div class="pside"><div class="actions">${actions}</div>
-      ${p.lat != null ? `<a class="locator" href="${mapHash(p.isChicago ? "chicago" : "illinois", null, p.id)}" aria-label="See ${esc(p.name)} on the map"><canvas id="loc" aria-hidden="true"></canvas><span>See on map</span></a>` : ""}</div>
+      ${p.lat != null ? `<a class="locator" href="${mapHash(p.isChicago ? "chicago" : "illinois", null, p.id)}" aria-label="See on map: ${esc(p.name)}"><canvas id="loc" aria-hidden="true"></canvas><span>See on map</span></a>` : ""}</div>
     <div class="pbody">${body}</div>
   </div></article>`;
   // back within this site only: an entry opened from another site (or a shared link) goes to the lists instead
@@ -967,7 +987,7 @@ function viewSaved(view) {
   if (!places.length && !unknownIL) html += `<div class="empty">${icon("bookmark")}<h2>No saved places yet</h2><p>Tap Save on any restaurant to keep it here. Saved places stay in this browser.</p><div class="row"><a class="btn solid" href="#/">Browse the rankings</a></div></div>`;
   else if (places.length) {
     if (places.some((p) => p.grade != null || p.score != null)) html += `<p class="cap">${GRADES_CAPTION}</p>`;
-    html += `<ol class="rlist">${places.map((p) => searchRow(p, state.geo.point ? L.distance(p, state.geo.point) : null,
+    html += `<ol role="list" class="rlist">${places.map((p) => searchRow(p, state.geo.point ? L.distance(p, state.geo.point) : null,
       `<button class="linkbtn srm" type="button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)} from Saved">Remove</button>`)).join("")}</ol>`;
     html += `<p class="cap">Saved places stay in this browser. Nothing is sent anywhere.</p>`;
   }
@@ -1311,7 +1331,7 @@ function viewMap(view, route) {
       state.mapSel = p[0]; state.mapStack = p;
       const more = p.length - 8;
       card.innerHTML = `<div class="mtop"><div><h2>${n(p.length)} places here</h2><p>Drawn on top of each other on the map.</p></div><button class="close" type="button" aria-label="Close">${icon("close")}</button></div>
-        <ul class="mstack">${p.slice(0, 8).map((x) => `<li><a href="${placeHref(x)}">${x.grade ? gradeChip(x.grade, "gt") : `<span class="tile">${icon("fork")}</span>`}<span>${esc(x.name)}${x.score != null ? ` <small>${x.score}</small>` : ""}</span></a></li>`).join("")}</ul>
+        <ul role="list" class="mstack">${p.slice(0, 8).map((x) => `<li><a href="${placeHref(x)}">${x.grade ? gradeChip(x.grade, "gt") : `<span class="tile">${icon("fork")}</span>`}<span>${esc(x.name)}${x.score != null ? ` <small>${x.score}</small>` : ""}</span></a></li>`).join("")}</ul>
         ${more > 0 ? `<p class="cap">and ${n(more)} more. Zoom in to see them apart.</p>` : ""}${p.some((x) => x.grade) ? `<p class="cap">Our grades from City inspection records, not official City grades.</p>` : ""}`;
       card.hidden = false; box.classList.add("carded");
       card.querySelector(".close").onclick = () => { showCard(null); cv.focus(); };
@@ -1325,7 +1345,7 @@ function viewMap(view, route) {
     card.innerHTML = `<div class="mtop">${p.grade ? gradeChip(p.grade, "gt") : `<span class="tile">${icon("fork")}</span>`}<div><h2>${esc(p.name)}</h2><p>${esc(sub)}</p><p>${esc([p.addr, p.placeLine].filter((x) => x != null).join(" · "))}</p></div>
       <button class="close" type="button" aria-label="Close">${icon("close")}</button></div>
       ${p.grade ? `<p class="cap" style="margin-top:6px">Our grade from City inspection records, not an official City grade.</p>` : ""}
-      <div class="row"><a class="btn solid small" href="${placeHref(p)}">Open place</a>${L.mapsLink(p) ? `<a class="btn small" href="${esc(L.mapsLink(p))}" target="_blank" rel="noopener">Directions</a>` : ""}</div>`;
+      <div class="row"><a class="btn solid small" href="${placeHref(p)}">Open place</a>${L.mapsLink(p) ? `<a class="btn small" href="${esc(L.mapsLink(p))}" target="_blank" rel="noopener">Directions<span class="sr"> (opens in a new tab)</span></a>` : ""}</div>`;
     card.hidden = false; box.classList.add("carded");
     card.querySelector(".close").onclick = () => { showCard(null); cv.focus(); };
     keepVisible(p);
@@ -1447,6 +1467,16 @@ async function boot() {
   const live = document.createElement("div"); live.id = "toast"; live.setAttribute("role", "status"); live.setAttribute("aria-live", "polite"); document.body.appendChild(live);
   const scrim = document.createElement("div"); scrim.id = "scrim"; scrim.className = "scrim"; scrim.hidden = true; document.body.appendChild(scrim);
   scrim.addEventListener("click", () => { if (state.closeSheet) state.closeSheet(); });
+  // on a phone, keep a focused element clear of the tab bar: app.css's scroll-padding does it where the browser honors it
+  // for focus; elsewhere (Safari) a small element still behind the bar after the browser's own scroll is nudged above it
+  document.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (!phone.matches || !el.closest || el.closest(".tabs, .fpanel")) return;
+    requestAnimationFrame(() => {
+      const bar = $(".tabs").getBoundingClientRect().top, r = el.getBoundingClientRect();
+      if (r.bottom > bar && r.top < innerHeight && r.height < bar / 2) window.scrollBy(0, r.bottom - bar + 16);
+    });
+  });
   wireHeader();
   // Skip to content: focus the content, never route (the router would read "#main" as a page)
   $(".skip").addEventListener("click", (e) => { e.preventDefault(); $("#main").focus(); });

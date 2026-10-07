@@ -5,8 +5,10 @@ SITE_ROOT points it at another server; a root-absolute link ("/x", used by 404.h
 docs/ served under a path prefix (as publish_data.py stages it) checks the same way. Exit code 1 if anything fails.
 PAGES get every check. Every page in sitemap.xml, including ones built elsewhere (the web version, explore/), gets the
 site-wide ones in site_wide(): no old address, the hub link, canonical = og:url = its sitemap URL, JSON-LD that parses
-and points at the domain, and no "every Chicago restaurant" claim."""
-import json, re, sys, urllib.request, urllib.error, html
+and points at the domain, no "every Chicago restaurant" claim, and the Content-Security-Policy meta (right after
+<meta charset>; script-src 'self' with a script file, 'none' without) with no inline script or event handler for it to
+block. Also /.well-known/security.txt (unexpired) and /favicon.ico."""
+import json, re, sys, urllib.request, urllib.error, html, datetime as dt
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 import os
@@ -57,6 +59,23 @@ def site_wide(page, src, p):
         if exp not in smurls: bad(name, "not in sitemap")
         for k in ("og:image", "twitter:image"):
             if not (metas.get(k) or "").startswith(BASE): bad(name, k, metas.get(k), "not on", BASE)
+    # Content-Security-Policy: GitHub Pages can't send headers, so a meta tag, before anything it governs (SEC-7)
+    csp = [a.get("content") or "" for t, a in p.tags if t == "meta" and (a.get("http-equiv") or "").lower() == "content-security-policy"]
+    i = next((i for i, (t, a) in enumerate(p.tags) if t == "meta" and "charset" in a), -1)
+    after = p.tags[i + 1][1] if 0 <= i < len(p.tags) - 1 else {}
+    if len(csp) != 1 or (after.get("http-equiv") or "").lower() != "content-security-policy":
+        bad(name, "needs one Content-Security-Policy meta, right after <meta charset>")
+    else:
+        d = {x.split()[0]: x.split()[1:] for x in csp[0].split(";") if x.split()}
+        want = "'self'" if any(a.get("src") for t, a in p.tags if t == "script") else "'none'"
+        if d.get("script-src") != [want]: bad(name, "CSP script-src", d.get("script-src"), "should be", [want])
+        for k in ("default-src", "object-src", "base-uri"):
+            if d.get(k) != ["'none'"]: bad(name, "CSP", k, d.get(k), "should be 'none'")
+    for t, a in p.tags:
+        if t == "script" and not a.get("src") and a.get("type") not in ("application/ld+json", "application/json"):
+            bad(name, "inline <script> (the CSP runs script files only: move it to a .js file)")
+        for k in a:
+            if k.startswith("on"): bad(name, f"inline event handler {k}= on <{t}> (the CSP blocks it)")
     for blk in p.ld:
         try: j = json.loads(blk)
         except Exception as e: bad(name, "JSON-LD parse", e); continue
@@ -172,8 +191,7 @@ for page in PAGES:
     # links + assets
     ext_bad = []; n_int = 0
     for t, a in p.tags:
-        for attr in ("href", "src"):
-            v = a.get(attr)
+        for v in [a.get("href"), a.get("src")] + [c.split()[0] for c in (a.get("srcset") or "").split(",") if c.strip()]:
             if not v or t == "meta": continue
             if t == "link" and a.get("rel") == "canonical": continue
             if v.startswith(("mailto:", "tel:")): continue
@@ -188,7 +206,7 @@ for page in PAGES:
                 elif frag:
                     if f'id="{frag}"'.encode() not in b3: bad(page, "missing anchor on target", v)
             else:
-                if t in ("script", "link", "img"): bad(page, "external resource", v)
+                if t in ("script", "link", "img", "source"): bad(page, "external resource", v)
                 if t == "a" and "noopener" not in (a.get("rel") or ""): ext_bad.append(v)
     if ext_bad: bad(page, "external links without noopener", ext_bad)
     print(f"  internal refs checked: {n_int}")
@@ -215,6 +233,19 @@ for ic in m["icons"]:
     if st4 != 200: bad("manifest icon", ic["src"], st4)
 if m.get("start_url") != "/" or m.get("scope") != "/": bad("manifest start_url/scope must be / (site at the domain root)")
 print("\nmanifest ok:", m["start_url"], [i["src"] for i in m["icons"]])
+st, ico = get(ROOT + "favicon.ico")   # browsers and Bing ask for it whatever the pages link
+if st != 200 or ico[:4] != b"\x00\x00\x01\x00": bad("favicon.ico", st, "not an icon file" if st == 200 else "")
+# security.txt (RFC 9116): served from docs/.well-known/ (docs/.nojekyll keeps GitHub Pages from dropping dot folders)
+st, sec = get(ROOT + ".well-known/security.txt")
+f = dict(re.findall(r"(?m)^([A-Za-z-]+):\s*(.+?)\s*$", sec.decode("utf-8", "replace"))) if st == 200 else {}
+if st != 200: bad(".well-known/security.txt", st)
+elif not f.get("Contact", "").startswith("mailto:") or f.get("Canonical") != BASE + ".well-known/security.txt":
+    bad(".well-known/security.txt needs Contact: mailto:... and Canonical:", BASE + ".well-known/security.txt")
+else:
+    try: left = (dt.datetime.fromisoformat(f["Expires"].replace("Z", "+00:00")) - dt.datetime.now(dt.timezone.utc)).days
+    except (KeyError, ValueError): left = None
+    if left is None or left < 0: bad(".well-known/security.txt Expires", f.get("Expires"), "is missing or past: set it a year ahead")
+    else: print("security.txt:", f["Contact"], "expires", f["Expires"], f"({left} days)" + ("  WARN: renew it soon" if left < 60 else ""))
 robots = get(ROOT+"robots.txt")[1].decode()
 if f"Sitemap: {BASE}sitemap.xml" not in robots.splitlines(): bad("robots.txt Sitemap line")
 print("robots.txt:", robots.strip().replace("\n"," | "))

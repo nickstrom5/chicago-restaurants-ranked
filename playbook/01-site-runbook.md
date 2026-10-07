@@ -202,9 +202,13 @@ SITE_ROOT=http://127.0.0.1:8791/ ../chi-eats/.venv/bin/python playbook/tools/sho
 Every URL in `sitemap.xml` also gets the site-wide checks, including pages built elsewhere such as `explore/`: no old
 github.io address or `/chicago-restaurants-ranked/` path, the eatsranked.com hub link, canonical = og:url = its sitemap
 URL, og:image and twitter:image on the domain, JSON-LD that parses, points at the domain and has no rating or review
-markup, and no "every Chicago restaurant" (the data covers nearly every one). A new page in the sitemap is checked
-automatically. `explore/index.html` (owned by the Explore workflow) failed these on 2026-09-28 and passes them as of
-2026-10-05.
+markup, no "every Chicago restaurant" (the data covers nearly every one), and the Content-Security-Policy meta tag
+(GitHub Pages can't send the header): right after `<meta charset>`, `script-src 'self'` on a page that loads a script
+file and `'none'` on one that doesn't, and no inline `<script>` or `on…=` handler, which the policy would block (the
+home page's App Store script is `docs/store.js` for that reason; JSON-LD is fine). A new page in the sitemap is checked
+automatically. It also checks `/favicon.ico` and `/.well-known/security.txt` (Contact, Canonical, an `Expires` in the
+future: it fails once that date passes, so move it a year ahead when it warns). `explore/index.html` (owned by the
+Explore workflow) failed these on 2026-09-28 and passes them as of 2026-10-05.
 
 `verify.py` exits 1 on any problem. Set `SITE_ROOT` to check another server, including the live site
 (`SITE_ROOT=https://chicago.eatsranked.com/ python3 playbook/tools/verify.py`). A root-absolute link (`/x`, in
@@ -259,13 +263,15 @@ App Store" buttons and the commented-out banner as they are. Once Apple approves
 
 1. In `docs/index.html`, uncomment the Smart App Banner and set its app id:
    `<meta name="apple-itunes-app" content="app-id=6816931379">`. Delete the instruction comment around it.
-2. In the script at the bottom of `docs/index.html`, set
+2. In `docs/store.js` (the home page loads it at the bottom), set
    `var APP_STORE_URL = "https://apps.apple.com/app/id6816931379";`. Every `data-store-btn` button then links to the App
-   Store and reads "Download on the App Store".
-3. Add `"downloadUrl"` and `"installUrl"`, both `https://apps.apple.com/app/id6816931379`, to the `MobileApplication`
+   Store and reads "Download on the App Store", and goes back to the solid button style (until then it is a quiet badge).
+3. Restore the "Free iPhone and iPad app" wording in `docs/index.html`'s title and description (`<title>`, `description`
+   and their `og:` and `twitter:` copies say "app coming soon" until launch); keep verify.py's 50–60 and 140–160 characters.
+4. Add `"downloadUrl"` and `"installUrl"`, both `https://apps.apple.com/app/id6816931379`, to the `MobileApplication`
    JSON-LD in `docs/index.html`, and add the App Store link to `README.md`.
-4. Open `https://apps.apple.com/app/id6816931379` in a browser and check it shows Chicago Restaurants: Ranked.
-5. Run §4, bump `lastmod` for the home page in `docs/sitemap.xml`, commit, push, wait for Pages, then open the live home
+5. Open `https://apps.apple.com/app/id6816931379` in a browser and check it shows Chicago Restaurants: Ranked.
+6. Run §4, bump `lastmod` for the home page in `docs/sitemap.xml`, commit, push, wait for Pages, then open the live home
    page on an iPhone in Safari and check the banner and both buttons.
 
 ## 6. Weekly data on the site

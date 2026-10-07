@@ -184,7 +184,9 @@ async function checkSearch(s, label) {
   const got = await js(`(() => {
     const ids = (sel) => [...document.querySelectorAll(sel)].map((a) => decodeURIComponent(a.getAttribute("href").replace("#/place/", "")));
     const head = document.querySelector(".closest-head");
-    return { count: document.querySelector("#scount").textContent.replace(/\\s+/g, " ").trim(),
+    // the visible count (screen-reader-only words, .sr, apart: the count is the app's; the extra words are ours)
+    const c = document.querySelector("#scount").cloneNode(true), sr = [...c.querySelectorAll(".sr")].map((x) => (x.remove(), x.textContent)).join("");
+    return { count: c.textContent.replace(/\\s+/g, " ").trim(), sr,
       shown: ids("#sbody ol.rlist:not(.closest) a.rrow"), closest: ids("#sbody ol.closest a.rrow"),
       notes: [...document.querySelectorAll("#sbody ol.closest a.rrow")].map((a) => a.querySelector(".rclose") ? a.querySelector(".rclose").textContent.trim() : ""),
       head: head ? { h2: head.querySelector("h2").textContent, p: head.querySelector("p").textContent, h3: head.querySelector("h3") && head.querySelector("h3").textContent,
@@ -195,6 +197,9 @@ async function checkSearch(s, label) {
   const what = `${label} ${s.scope} “${s.text}”${anyFilter(s.filters) ? " (filtered)" : ""}`;
   const countWant = `${s.total.toLocaleString("en-US")} ${s.total === 1 ? "place" : "places"}${anyFilter(s.filters) ? " · filtered" : ""}`;
   check(got.count === countWant, `${what}: count`, countWant, got.count);
+  // Closest matches only: a screen reader hears that there's a list under the "0 places"
+  const srWant = s.closest.length ? ` · no exact match, ${s.closest.length} ${s.closest.length === 1 ? "closest match" : "closest matches"} below` : "";
+  check(got.sr === srWant, `${what}: the count's words for a screen reader`, srWant, got.sr);
   check(same(got.shown, s.shown.slice(0, 100)), `${what}: the rows shown, in order`, s.shown.slice(0, 100), got.shown);
   check(same(got.closest, s.closest), `${what}: Closest matches`, s.closest, got.closest);
   if (s.closest.length) {

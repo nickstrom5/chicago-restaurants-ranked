@@ -5,6 +5,10 @@ its caption, so nothing 404s. Replace each file **in place, same filename**. You
 the real screen shows something different from the alt text below. If it does, edit the `alt` in `docs/index.html`
 so it describes what's actually on screen.
 
+Each PNG has a WebP twin with the same name (`iphone-1.webp`), which the home page serves first (the PNG is the fallback,
+and the JSON-LD lists the PNGs). After replacing a PNG, rebuild its twin, or the page keeps showing the old picture:
+`cwebp -q 80 -m 6 -metadata none docs/screenshots/iphone-1.png -o docs/screenshots/iphone-1.webp` (`brew install webp`).
+
 | File | Size (px) | Screen to capture | Caption on the site |
 |---|---|---|---|
 | `docs/screenshots/iphone-1.png` | 1320 × 2868 | Rankings, **Cleanest** board, whole city | Rankings: the cleanest places in Chicago, top to bottom. |
