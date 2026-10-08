@@ -1046,7 +1046,7 @@ function viewAbout(view) {
       <p>No account, no ads, no cookies, no analytics, no tracking. Saved places stay in this browser’s storage. Your location is used only when you tap Near me or Show my location: it sorts places and centers the map in your browser, and it’s never stored or sent anywhere. This page loads nothing from other companies: no fonts, maps or scripts from third parties.</p>
       <p><a href="../privacy.html">Privacy policy</a></p></section>
     <section><h2>Help</h2>
-      <p><a href="mailto:work-with-nick@gmail.com?subject=Chi%20Ranked">Email support</a>: work-with-nick@gmail.com</p>
+      <p><a href="mailto:nick@eatsranked.com?subject=Chi%20Ranked">Email support</a>: nick@eatsranked.com</p>
       <p><a href="../support.html">Report a wrong or outdated listing</a> · <a href="../terms.html">Terms of use</a> · <a href="../">Website</a></p></section>
     <p class="cap">${through ? `Data through ${esc(through)}.` : ""}</p>
   </article>`;

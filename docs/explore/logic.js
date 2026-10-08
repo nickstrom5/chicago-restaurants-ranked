@@ -1064,7 +1064,7 @@ export function mapsLink(p) {
   if (p.lat == null || p.lon == null) return null;
   return `https://maps.apple.com/?q=${queryValue(p.name)}&ll=${queryValue(`${swiftDouble(p.lat)},${swiftDouble(p.lon)}`)}`;
 }
-export const REPORT_EMAIL = "work-with-nick@gmail.com";
+export const REPORT_EMAIL = "nick@eatsranked.com";
 export const reportSubject = (p) => (p.isChicago ? `Listing correction: ${p.name} (License #${p.id})` : `Listing correction: ${p.name}, ${p.city}`);
 /** ListingReport.url */
 export const reportURL = (p) => `mailto:${REPORT_EMAIL}?subject=${queryValue(reportSubject(p))}`;

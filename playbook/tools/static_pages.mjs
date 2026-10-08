@@ -106,6 +106,8 @@ const gradeLine = (c) => `<span data-n="graded">${n(c.graded)}</span> ${c.graded
   + (c.graded ? `: ${L.GRADES_ORDER.map((g) => `<span data-n="${g}">${n(c[g])}</span> ${g}`).join(", ")}.` : ".");
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const word = (k) => WORDS[k] ?? n(k);
+/** The first candidate that fits in max characters (titles 60, descriptions 160, so search results don't cut them), else the last. */
+const fit = (max, ...xs) => xs.find((x) => x.length <= max) ?? xs[xs.length - 1];
 
 // ------------------------------------------------------------------------------------------------ page frame
 function page({ path, title, desc, index, crumbs, h1, kicker, body, generatedNote }) {
@@ -187,7 +189,7 @@ ${body}
       <a href="${up}support.html">Help &amp; support</a>
       <a href="${up}privacy.html">Privacy policy</a>
       <a href="${up}terms.html">Terms of use</a>
-      <a href="mailto:work-with-nick@gmail.com">Email support</a>
+      <a href="mailto:nick@eatsranked.com">Email support</a>
     </nav>
     <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
     <p class="fine">City of Chicago data disclaimer: This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one's own risk.</p>
@@ -292,9 +294,10 @@ ${shown.map((p) => placeRow(up, p, p.cuisine)).join("\n")}
     <ul class="links" role="list">${siblings.map((x) => `<li><a href="${up}neighborhoods/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
     ` : ""}<p><a href="${up}neighborhoods/">All Chicago neighborhoods</a> · <a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "area", path, index,
-      title: `${a.name} Restaurant Grades, Chicago | Chi Ranked`,
-      desc: `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${a.name}, Chicago, from City inspection records through ${longDate(rt)}`
+      title: fit(60, `${a.name} Restaurant Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades | Chi Ranked`),
+      desc: fit(160, `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${a.name}, Chicago, from City inspection records through ${longDate(rt)}`
         + (a.c.A ? `: ${n(a.c.A)} graded A` : "") + `. Not official City grades.`,
+        `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${a.name}, Chicago, from City inspection records through ${longDate(rt)}. Not official City grades.`),
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }, { name: a.name, path }],
       h1: `${a.name} restaurant inspection grades`, kicker: `Chicago community area${a.side ? " · " + sideName(a.side) : ""}`, body });
   }
@@ -318,7 +321,7 @@ ${sourceBox(rt)}
 ${tables}${noSide.length ? `\n    <h2>Other areas</h2>\n    <ul class="links" role="list">${noSide.map((a) => `<li><a href="${up}neighborhoods/${a.slug}/">${esc(a.name)}</a></li>`).join("")}</ul>` : ""}
     <p><a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "areas", path: "neighborhoods/", index: true,
-      title: "Chicago Restaurant Inspection Grades by Neighborhood | Chi Ranked",
+      title: "Chicago Restaurant Grades by Neighborhood | Chi Ranked",
       desc: `Our A–F grades for ${n(areaC.graded)} places in ${n(areas.length)} Chicago community areas, from City inspection records through ${longDate(rt)}. Not official City grades.`,
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }],
       h1: "Chicago restaurant grades by neighborhood", kicker: "Neighborhoods", body });
@@ -342,9 +345,11 @@ ${shown.map((p) => placeRow(up, p, p.hood)).join("\n")}
     <ul class="links" role="list">${cuisines.filter((x) => x !== c).map((x) => `<li><a href="${up}cuisines/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
     <p><a href="${up}cuisines/">All cuisines</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "cuisine", path, index,
-      title: `Chicago ${c.name} Places: Inspection Grades | Chi Ranked`,
-      desc: `Our A–F grades for ${plural(c.c.graded, "Chicago place", "Chicago places")} under ${c.name}, from City inspection records through ${longDate(rt)}`
+      title: fit(60, `Chicago ${c.name} Places: Inspection Grades | Chi Ranked`, `Chicago ${c.name}: Inspection Grades | Chi Ranked`,
+        `Chicago ${c.name} Grades | Chi Ranked`),
+      desc: fit(160, `Our A–F grades for ${plural(c.c.graded, "Chicago place", "Chicago places")} under ${c.name}, from City inspection records through ${longDate(rt)}`
         + (c.c.A ? `: ${n(c.c.A)} graded A` : "") + `. Not official City grades.`,
+        `Our A–F grades for ${plural(c.c.graded, "Chicago place", "Chicago places")} under ${c.name}, from City inspection records through ${longDate(rt)}. Not official City grades.`),
       crumbs: [home, { name: "Cuisines", path: "cuisines/" }, { name: c.name, path }],
       h1: `${c.name} places in Chicago: inspection grades`, kicker: "Chicago cuisine group", body });
   }
@@ -364,7 +369,7 @@ ${cuisines.map((c) => `        <tr><th scope="row"><a href="${up}cuisines/${c.sl
     <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "cuisines", path: "cuisines/", index: true,
       title: "Chicago Restaurant Inspection Grades by Cuisine | Chi Ranked",
-      desc: `Our A–F grades for ${n(cc.graded)} Chicago places in ${n(cuisines.length)} cuisine groups, from pizza to tacos, from City inspection records through ${longDate(rt)}. Not official City grades.`,
+      desc: `Our A–F grades for ${n(cc.graded)} Chicago places in ${n(cuisines.length)} cuisine groups, from City inspection records through ${longDate(rt)}. Not official City grades.`,
       crumbs: [home, { name: "Cuisines", path: "cuisines/" }],
       h1: "Chicago restaurant grades by cuisine", kicker: "Cuisines", body });
   }
@@ -393,7 +398,7 @@ ${shown.map((p, i) => rankRow(up, p, i, b.id, data)).join("\n")}
     <p><a href="${up}lists/">All rankings</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
     add({ kind: "board", path, index: true,
       title: `${b.title} · Chicago Restaurant Rankings | Chi Ranked`,
-      desc: `${b.sub}: ${shown.length < b.list.length ? `the top ${n(shown.length)} of ${n(b.list.length)}` : `all ${n(b.list.length)}`} Chicago places on this list, from public records through ${longDate(rt)}.`,
+      desc: `${b.sub}: ${shown.length < b.list.length ? `the top ${n(shown.length)} of ${n(b.list.length)}` : `all ${n(b.list.length)}`} Chicago places on this list, with City records through ${longDate(rt)}.`,
       crumbs: [home, { name: "Rankings", path: "lists/" }, { name: b.title, path }],
       h1: b.title, kicker: "Chicago restaurant rankings", body });
   }
@@ -408,7 +413,7 @@ ${boards.map((b) => `      <li><a href="${up}lists/${b.slug}/"><b>${esc(b.title)
     <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
     add({ kind: "boards", path: "lists/", index: true,
       title: "Chicago Restaurant Rankings from Public Records | Chi Ranked",
-      desc: `${word(boards.length).replace(/^./, (ch) => ch.toUpperCase())} Chicago restaurant rankings from public records, from cleanest kitchens to Michelin and James Beard honorees, with City records through ${longDate(rt)}.`,
+      desc: `${word(boards.length).replace(/^./, (ch) => ch.toUpperCase())} Chicago restaurant rankings from public records, from the cleanest kitchens to Michelin and James Beard honorees. City records through ${longDate(rt)}.`,
       crumbs: [home, { name: "Rankings", path: "lists/" }],
       h1: "Chicago restaurant rankings", kicker: "Rankings", body });
   }

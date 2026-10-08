@@ -113,6 +113,7 @@ thead th { color: var(--ink); background: var(--sky); font-weight: 700; font-siz
 tbody th { font-weight: 600; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { table { font-size: 15px; } th, td { padding: 9px 6px; } thead th { font-size: 13px; } }
+@media (max-width: 360px) { th, td { padding: 9px 4px; } }
 .cards { list-style: none; margin: 18px 0 24px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .cards a { display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 14px; text-decoration: none; color: var(--ink2); background: var(--white); }
 .cards a:hover { background: var(--sky); color: var(--ink2); }

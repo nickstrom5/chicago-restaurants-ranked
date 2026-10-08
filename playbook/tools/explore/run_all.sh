@@ -59,7 +59,12 @@ else
   record "browser (1440 and 390)" "skipped"
 fi
 
-step "5/5 verify.py with docs/ served at the root"
+step "5/5 verify.py with docs/ served at the root (and the data pages up to date with logic.js and the data)"
+if node "$SITE/playbook/tools/static_pages.mjs" --docs "$SITE/docs" --check > "$WORK/static_pages.txt" 2>&1; then
+  record "data pages (static_pages --check)" "pass"
+else
+  record "data pages (static_pages --check)" "FAIL (see $WORK/static_pages.txt)"
+fi
 PORT=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
 python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE/docs" > /dev/null 2>&1 &
 SERVER=$!

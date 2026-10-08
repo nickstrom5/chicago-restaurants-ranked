@@ -13,7 +13,7 @@ Internal notes. This folder is **not** published; only `docs/` is.
   data by `playbook/tools/static_pages.mjs` (§6), never by hand. Every footer links to `lists/`, `neighborhoods/` and
   `cuisines/`; the home page's boards section and the web version's footer do too.
 - Hub: https://eatsranked.com/ (the other states). Every footer has "More states at eatsranked.com".
-- Repo: https://github.com/nickstrom5/chicago-restaurants-ranked (public; support is by email, work-with-nick@gmail.com, with GitHub Issues as a public option)
+- Repo: https://github.com/nickstrom5/chicago-restaurants-ranked (public; support is by email, nick@eatsranked.com, with GitHub Issues as a public option)
 - Static HTML, inline CSS, no build step, no third-party scripts, fonts or tracking. `docs/*.html` is the source of truth.
   The data pages share `docs/pages.css` (the guide pages' look, with the web version's list rows).
 
