@@ -255,10 +255,28 @@ function wording() {
   check(!/nickstrom5\.github\.io|\/chicago-restaurants-ranked\//.test(web), "names the old address or the old path prefix", false, true);
 }
 
+// ------------------------------------------------------------------------------------------------ the rest of Illinois in slices
+// app.js reads the rest of Illinois with parseIllinoisInSteps (about 1,000 rows at a time, the page free between them): it
+// must give exactly what parseIllinois gives (every place, field and list, in order), which everything above compares with
+// the app.
+async function stepped(name, files) {
+  section = `${name}/stepped`;
+  const whole = L.parseIllinois(files.illinois);
+  let pauses = 0;
+  const parts = await L.parseIllinoisInSteps(files.illinois, async () => { pauses += 1; }, 997);
+  const plain = (r) => JSON.stringify({ ...r, illinois: r.illinois.map(({ _und, ...p }) => p) });
+  check(plain(parts) === plain(whole), "parseIllinoisInSteps gives what parseIllinois gives", "the same", "different");
+  const want = Math.floor(files.illinois.rows.length / 997) + 1;
+  check(pauses === want, "parseIllinoisInSteps pauses between slices of rows", want, pauses);
+}
+
 // ------------------------------------------------------------------------------------------------ run
-compare("bundled", loadMirror());
+const bundled = loadMirror();
+compare("bundled", bundled);
 compare("rules", loadFixture("rules"));
 compare("edge", loadFixture("edge"));
+await stepped("bundled", bundled);
+await stepped("edge", loadFixture("edge"));
 wording();
 console.log("\nsummary:");
 for (const [k, v] of Object.entries(tally)) console.log(`  ${k.padEnd(18)} ${String(v.checked).padStart(9)} checked  ${v.failed ? v.failed + " DIFFERENT" : "0 differences"}`);

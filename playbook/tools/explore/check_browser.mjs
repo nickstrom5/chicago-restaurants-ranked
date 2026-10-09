@@ -1,8 +1,10 @@
 // Drives the web app (docs/explore/) in headless Chrome, at 1440 px and at 390 px as a phone (device emulation: touch,
 // a phone user agent, 3x pixels), against the test mirror (make_mirror.py) served on 127.0.0.1, and checks what the page
 // shows against the Swift oracle's answers: search results and their count, Closest matches (heading, wording, rows, the
-// note on every row), place pages (newer City results, aka "A · B", alt names never shown), a board with newer results,
-// the home grid's counts, and the map (dots drawn, the legend's count, a focused place's card). On every page: no
+// note on every row), the other side of a search (Also in Chicago, In Rest of Illinois: that side's own first rows and count,
+// its link, said once to a screen reader, and the old button when the rest of Illinois can't load), place pages (newer City
+// results, aka "A · B", alt names never shown), a board with newer results, the home grid's counts, and the map (dots drawn,
+// the legend's count, a focused place's card). On every page: no
 // requests anywhere but the local server, no cookies, no console errors, nothing wider than the screen. Screenshots go to
 // --shots. Chrome runs with its own profile (--profile), never the user's.
 //
@@ -103,8 +105,8 @@ async function waitFor(expr, what, ms = 15000) {
   }
 }
 async function shot(name) {
-  const m = await js("({w: innerWidth, h: innerHeight})");
-  const r = await page("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: m.w, height: m.h, scale: m.w < 720 ? 0.5 : 1 } });
+  const m = await js("({w: innerWidth, h: innerHeight, x: scrollX, y: scrollY})");      // what's on screen, scrolled or not
+  const r = await page("Page.captureScreenshot", { format: "png", clip: { x: m.x, y: m.y, width: m.w, height: m.h, scale: m.w < 720 ? 0.5 : 1 } });
   writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(r.data, "base64"));
 }
 /** Elements sticking out past the right edge of the screen (outside anything that scrolls or clips sideways). */
@@ -173,13 +175,67 @@ function pickSearches() {
 }
 const SEARCHES = pickSearches();
 
+// The other side of a search: under a list, "Also in <area>" with that side's first 3 exact matches and a link there; with no
+// exact match here, "In <area>" (before any Closest matches), or a line saying it has none either. Never its Closest matches.
+const AREA = { chicago: "Chicago", illinois: "Rest of Illinois" };
+const GRADES_CAPTION = "Our grades from City inspection records, not official City grades.";
+const plainSearch = (text, scope) => O.searches.find((x) => x.text === text && x.scope === scope && !anyFilter(x.filters));
+const searchHref = (text, scope) => { const sp = new URLSearchParams(); sp.set("q", text); if (scope === "illinois") sp.set("scope", "illinois"); return `#/search?${sp}`; };
+/** What the page should show of the other side of search `s`: from the oracle's own search of the same words there, with no
+ *  filters (the link there starts filters over). null when the oracle didn't run that search. */
+function alsoWant(s) {
+  const other = s.scope === "chicago" ? "illinois" : "chicago", o = plainSearch(s.text, other);
+  if (!o || !s.text.trim()) return null;
+  const zero = s.total === 0;
+  if (!o.total) return { state: "none", h2: null, ids: [], none: zero ? `No exact match in ${AREA[other]} either.` : null };
+  const rows = o.shown.slice(0, 3).map((id) => byId.get(id));
+  return { state: "shown", h2: `${zero ? "In" : "Also in"} ${AREA[other]}`, ids: rows.map((p) => p.id), none: null,
+    subs: rows.map((p) => [p.isChicago ? p.hood : p.city, p.cuisine].filter((x) => x != null).join(" · ") + ` · in ${AREA[other]}`),
+    grades: rows.map((p) => (p.grade ? `Grade ${p.grade}` : null)),
+    cap: other === "illinois" ? "No grades outside Chicago: the City inspects only Chicago restaurants." : rows.some((p) => p.grade) ? GRADES_CAPTION : null,
+    link: { text: o.total > 1 ? `See all ${o.total.toLocaleString("en-US")} in ${AREA[other]}` : `Search ${AREA[other]} for “${s.text.trim()}”`, href: searchHref(s.text, other) } };
+}
+/** The other side as the page shows it (#sbody's data-also: off, later, loading, shown, none or failed). */
+const ALSO = `(() => {
+  const b = document.querySelector("#sbody"), a = b.querySelector(".also"), head = b.querySelector(".closest-head");
+  const ids = (sel) => [...b.querySelectorAll(sel)].map((x) => decodeURIComponent(x.getAttribute("href").replace("#/place/", "")));
+  const link = a && a.querySelector("[data-also-link]");
+  return { state: b.dataset.also, h2: a ? a.querySelector("h2").textContent : null, ids: ids(".also ol.also-list a.rrow"),
+    subs: [...b.querySelectorAll(".also a.rrow .rsub")].map((x) => x.textContent),
+    grades: [...b.querySelectorAll(".also a.rrow")].map((x) => (x.querySelector(".g") ? x.querySelector(".g").textContent : null)),
+    cap: a && a.querySelector(".cap") ? a.querySelector(".cap").textContent : null,
+    link: link ? { text: link.textContent, href: link.getAttribute("href"), name: link.textContent } : null,
+    none: b.querySelector(".also-none") ? b.querySelector(".also-none").textContent : null,
+    // the list is a list, named by its heading; with Closest matches, the other side comes first
+    list: a ? { role: a.querySelector("ol").getAttribute("role"), labelled: a.querySelector("ol").getAttribute("aria-labelledby") === a.querySelector("h2").id, tag: a.querySelector("h2").tagName } : null,
+    before: a && head ? !!(a.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_FOLLOWING) : null,
+    oldButtons: [...b.querySelectorAll(".empty a.btn, .closest-head a.btn")].map((x) => x.textContent),
+    live: document.querySelector("#salso-live").textContent };
+})()`;
+const ALSO_SETTLED = `(() => { const b = document.querySelector("#sbody"); return !!b && ["off", "shown", "none", "failed"].includes(b.dataset.also) && !b.querySelector(".spin"); })()`;
+function checkAlsoAgainst(want, got, what) {
+  if (!want) return;
+  check(got.state === want.state, `${what}: the other side's state`, want.state, got.state);
+  check(got.h2 === want.h2, `${what}: the other side's heading`, want.h2, got.h2);
+  check(same(got.ids, want.ids), `${what}: the other side's rows (its own search's first 3, in order)`, want.ids, got.ids);
+  check(got.none === want.none, `${what}: the line when the other side has none`, want.none, got.none);
+  if (want.state !== "shown") return;
+  check(same(got.subs, want.subs), `${what}: the other side's rows say neighborhood or town · cuisine (and the area, for a screen reader)`, want.subs, got.subs);
+  check(same(got.grades, want.grades), `${what}: the other side's grade chips`, want.grades, got.grades);
+  check(got.cap === want.cap, `${what}: the other side's caption`, want.cap, got.cap);
+  check(same(got.link && { text: got.link.text, href: got.link.href }, want.link), `${what}: the link to the other side`, want.link, got.link);
+  check(same(got.list, { role: "list", labelled: true, tag: "H2" }), `${what}: the other side is a list under its own heading`, { role: "list", labelled: true, tag: "H2" }, got.list);
+  check(got.oldButtons.length === 0, `${what}: no old "Search …" button beside the other side's rows`, [], got.oldButtons);
+}
+
 async function checkSearch(s, label) {
   const sp = paramsOf(s.filters, s.scope);
   if (s.text) sp.set("q", s.text);
   const h = `#/search?${sp.toString()}`;
   await go(h);
   const done = `(() => { const c = document.querySelector("#scount"); const b = document.querySelector("#sbody");
-    return c && b && c.textContent.trim() !== "" && !b.querySelector(".spin") && (b.querySelector("ol.rlist") || b.querySelector(".empty")); })()`;
+    return c && b && c.textContent.trim() !== "" && !b.querySelector(".spin") && (b.querySelector("ol.rlist") || b.querySelector(".empty"))
+      && ["off", "shown", "none", "failed"].includes(b.dataset.also); })()`;
   if (!(await waitFor(done, `search “${s.text}” to show`))) return;
   const got = await js(`(() => {
     const ids = (sel) => [...document.querySelectorAll(sel)].map((a) => decodeURIComponent(a.getAttribute("href").replace("#/place/", "")));
@@ -187,7 +243,7 @@ async function checkSearch(s, label) {
     // the visible count (screen-reader-only words, .sr, apart: the count is the app's; the extra words are ours)
     const c = document.querySelector("#scount").cloneNode(true), sr = [...c.querySelectorAll(".sr")].map((x) => (x.remove(), x.textContent)).join("");
     return { count: c.textContent.replace(/\\s+/g, " ").trim(), sr,
-      shown: ids("#sbody ol.rlist:not(.closest) a.rrow"), closest: ids("#sbody ol.closest a.rrow"),
+      shown: ids("#sbody ol.rlist:not(.closest):not(.also-list) a.rrow"), closest: ids("#sbody ol.closest a.rrow"),
       notes: [...document.querySelectorAll("#sbody ol.closest a.rrow")].map((a) => a.querySelector(".rclose") ? a.querySelector(".rclose").textContent.trim() : ""),
       head: head ? { h2: head.querySelector("h2").textContent, p: head.querySelector("p").textContent, h3: head.querySelector("h3") && head.querySelector("h3").textContent,
         links: [...head.querySelectorAll("a, button")].map((x) => x.textContent.trim()) } : null,
@@ -208,7 +264,8 @@ async function checkSearch(s, label) {
     // SearchTab's heading shows the text as searched, trimmed (debounced)
     const want = { h2: `No exact match for “${s.text.trim()}”`, p: filtered ? "These places match only some of your words, or spell them differently. Your filters may be hiding others."
       : "These places match only some of your words, or spell them differently. Check the name and address.", h3: "Closest matches",
-      links: [...(filtered ? ["Clear filters"] : []), s.scope === "chicago" ? "Search Rest of Illinois" : "Search Chicago"] };
+      // the other side is in the page (above, or a line here), so the old "Search Rest of Illinois" button is gone
+      links: [...(filtered ? ["Clear filters"] : [])] };
     check(same(got.head, want), `${what}: the No exact match heading`, want, got.head);
     check(got.empty === null, `${what}: no "No results" panel under Closest matches`, null, got.empty);
     const graded = s.closest.some((id) => byId.get(id)?.grade);
@@ -216,6 +273,161 @@ async function checkSearch(s, label) {
   } else if (s.total === 0) {
     check(got.head === null && got.empty === `No results for “${s.text.trim()}”`, `${what}: "No results" panel`, `No results for “${s.text.trim()}”`, got.empty);
   }
+  // the other side of the search: against the oracle when it ran the same words there, else only its shape
+  const also = await js(ALSO);
+  checkAlsoAgainst(alsoWant(s), also, what);
+  check(also.ids.length <= 3 && (also.state === "shown") === also.ids.length > 0, `${what}: the other side shows 1 to 3 rows only when it has matches`, also.state, also.ids);
+  if (s.closest.length && !s.total && also.state === "shown") check(also.before === true, `${what}: the other side's exact matches come before Closest matches`, true, also.before);
+}
+
+/** Nick's two reports (2026-10-09) and the rules around them: "vito" on Rest of Illinois shows Chicago's Vito & Nicks under
+ *  Also in Chicago; "hewn" on Chicago shows Hewn (Evanston) under In Rest of Illinois instead of a bare button; words with no
+ *  match on either side show no preview, only a line; the link keeps the words and switches the area; the count is said
+ *  once, not letter by letter. */
+async function checkAlso(label) {
+  const settle = async (what) => (await waitFor(`${ALSO_SETTLED} && !document.getElementById("__stale")`, what)) && js(ALSO);
+  const VITO = "1122790";
+  const vitoChi = plainSearch("vito", "chicago"), hewnIl = plainSearch("hewn", "illinois");
+  check(vitoChi && vitoChi.shown.includes(VITO), `the app's Chicago search for “vito” has Vito & Nicks (${VITO}): the data changed, pick another example`, true, vitoChi && vitoChi.shown);
+  const hewn = hewnIl && hewnIl.shown.map((id) => byId.get(id)).find((p) => p.name === "Hewn" && p.city === "Evanston");
+  check(!!hewn, "the app's Rest of Illinois search for “hewn” has Hewn in Evanston: the data changed, pick another example", true, hewnIl && hewnIl.shown);
+  if (!vitoChi || !hewn) return;
+
+  // 1. vito on Rest of Illinois
+  await go(searchHref("vito", "illinois"));
+  let a = await settle("“vito” on Rest of Illinois");
+  if (a) {
+    check(a.h2 === "Also in Chicago" && a.ids.includes(VITO), `${label} “vito” on Rest of Illinois: Vito & Nicks under Also in Chicago`, ["Also in Chicago", VITO], [a.h2, a.ids]);
+    checkAlsoAgainst(alsoWant(plainSearch("vito", "illinois")), a, `${label} “vito” on Rest of Illinois`);
+    const live = await waitFor(`document.querySelector("#salso-live").textContent`, "the other side's count for a screen reader", 5000);
+    const n = vitoChi.total;
+    check(live === `Also in Chicago: ${n} ${n === 1 ? "place" : "places"}.`, `${label} “vito” on Rest of Illinois: the count is said politely`, `Also in Chicago: ${n} places.`, live);
+    await js(`document.querySelector(".also").scrollIntoView({ block: "center" })`);
+    await shot(`${label}-also-vito-illinois`);
+    await pageChecks(`${label} Also in Chicago`);
+    // 4. its link: the same words, now on Chicago
+    await js(`document.querySelector("#view").insertAdjacentHTML("beforeend", '<i id="__stale" hidden></i>'); document.querySelector("[data-also-link]").click()`);
+    const want = searchHref("vito", "chicago");
+    if (await waitFor(`location.hash === ${JSON.stringify(want)} && !document.getElementById("__stale")`, "the link to Chicago")) {
+      await settle("“vito” on Chicago");
+      const got = await js(`({ hash: location.hash, pressed: [...document.querySelectorAll(".seg button[aria-pressed=true]")].map((b) => b.dataset.scope), q: document.querySelector("#q").value,
+        count: document.querySelector("#scount").textContent, kicker: document.querySelector("#skick").textContent,
+        shown: [...document.querySelectorAll("#sbody ol.rlist:not(.closest):not(.also-list) a.rrow")].map((x) => decodeURIComponent(x.getAttribute("href").replace("#/place/", ""))) })`);
+      const exp = { hash: want, pressed: ["chicago"], q: "vito", count: `${n} ${n === 1 ? "place" : "places"}`, kicker: "Chicago", shown: vitoChi.shown.slice(0, 100) };
+      check(same(got, exp), `${label} Also in Chicago's link keeps “vito” and switches to Chicago`, exp, got);
+      check(vitoChi.shown.slice(0, 3).every((id, i) => a.ids[i] === id), `${label} the preview's rows are Chicago's own first rows`, vitoChi.shown.slice(0, 3), a.ids);
+      checkAlsoAgainst(alsoWant(vitoChi), await js(ALSO), `${label} “vito” on Chicago, after the link`);
+    }
+  }
+
+  // 2. hewn on Chicago: no results here, Hewn (Evanston) in Rest of Illinois, no bare button
+  await go(searchHref("hewn", "chicago"));
+  a = await settle("“hewn” on Chicago");
+  if (a) {
+    const empty = await js(`document.querySelector("#sbody .empty h2") && document.querySelector("#sbody .empty h2").textContent`);
+    check(empty === "No results for “hewn”", `${label} “hewn” on Chicago: No results here`, "No results for “hewn”", empty);
+    check(a.h2 === "In Rest of Illinois" && a.ids.includes(hewn.id) && a.subs[a.ids.indexOf(hewn.id)].startsWith("Evanston · "),
+      `${label} “hewn” on Chicago: Hewn (Evanston) under In Rest of Illinois`, ["In Rest of Illinois", hewn.id, "Evanston · …"], [a.h2, a.ids, a.subs]);
+    check(!a.oldButtons.some((t) => t.startsWith("Search Rest of Illinois")), `${label} “hewn” on Chicago: the bare "Search Rest of Illinois" button is replaced`, [], a.oldButtons);
+    checkAlsoAgainst(alsoWant(plainSearch("hewn", "chicago")), a, `${label} “hewn” on Chicago`);
+    const live = await waitFor(`document.querySelector("#salso-live").textContent`, "the other side's count for a screen reader", 5000);
+    check(live === `In Rest of Illinois: ${hewnIl.total} ${hewnIl.total === 1 ? "place" : "places"}.`, `${label} “hewn” on Chicago: the count is said politely`, "In Rest of Illinois: 1 place.", live);
+    await shot(`${label}-also-hewn-chicago`);
+    await pageChecks(`${label} In Rest of Illinois`);
+    await js(`document.querySelector("#view").insertAdjacentHTML("beforeend", '<i id="__stale" hidden></i>'); document.querySelector("[data-also-link]").click()`);
+    const want = searchHref("hewn", "illinois");
+    if (await waitFor(`location.hash === ${JSON.stringify(want)} && !document.getElementById("__stale")`, "the link to Rest of Illinois")) {
+      await settle("“hewn” on Rest of Illinois");
+      const got = await js(`({ hash: location.hash, pressed: [...document.querySelectorAll(".seg button[aria-pressed=true]")].map((b) => b.dataset.scope), q: document.querySelector("#q").value,
+        count: document.querySelector("#scount").textContent, kicker: document.querySelector("#skick").textContent,
+        shown: [...document.querySelectorAll("#sbody ol.rlist:not(.closest):not(.also-list) a.rrow")].map((x) => decodeURIComponent(x.getAttribute("href").replace("#/place/", ""))) })`);
+      const n = hewnIl.total;
+      const exp = { hash: want, pressed: ["illinois"], q: "hewn", count: `${n} ${n === 1 ? "place" : "places"}`, kicker: "Rest of Illinois", shown: hewnIl.shown.slice(0, 100) };
+      check(same(got, exp), `${label} In Rest of Illinois' link keeps “hewn” and switches to Rest of Illinois`, exp, got);
+    }
+  }
+
+  // Closest matches here, an exact match there: the exact match comes first, and no old button in the heading
+  await go(searchHref("hewn bakery", "chicago"));
+  a = await settle("“hewn bakery” on Chicago");
+  if (a) {
+    check(a.state === "shown" && a.before === true, `${label} “hewn bakery” on Chicago: In Rest of Illinois before the Closest matches`, ["shown", true], [a.state, a.before]);
+    checkAlsoAgainst(alsoWant(plainSearch("hewn bakery", "chicago")), a, `${label} “hewn bakery” on Chicago`);
+    await shot(`${label}-also-closest`);
+  }
+
+  // under a long list, worked out after the list paints: 3 rows of many, and the count of them all
+  await go(searchHref("pizza", "chicago"));
+  a = await settle("“pizza” on Chicago");
+  if (a) {
+    const il = plainSearch("pizza", "illinois");
+    check(a.state === "shown" && il && il.total > 3 && a.link && a.link.text === `See all ${il.total.toLocaleString("en-US")} in Rest of Illinois`,
+      `${label} “pizza” on Chicago: Also in Rest of Illinois, 3 rows and "See all ${il && il.total}"`, il && il.total, a.link);
+    checkAlsoAgainst(alsoWant(plainSearch("pizza", "chicago")), a, `${label} “pizza” on Chicago`);
+  }
+  // the other side has only Closest matches: nothing of it shows (never its Closest matches)
+  await go(searchHref("hewn bakery", "illinois"));
+  a = await settle("“hewn bakery” on Rest of Illinois");
+  if (a) {
+    const chi = plainSearch("hewn bakery", "chicago");
+    check(chi && !chi.total && chi.closest.length > 0, "the app's Chicago search for “hewn bakery” has only Closest matches (the test needs that)", "closest only", chi && [chi.total, chi.closest.length]);
+    const got = { state: a.state, h2: a.h2, ids: a.ids, none: a.none };
+    check(same(got, { state: "none", h2: null, ids: [], none: null }), `${label} “hewn bakery” on Rest of Illinois: Chicago's Closest matches never show`, { state: "none" }, got);
+  }
+
+  // 3. nothing on either side: no preview, a plain line
+  for (const scope of ["chicago", "illinois"]) {
+    const other = scope === "chicago" ? "illinois" : "chicago";
+    const mine = plainSearch("zzqx", scope), theirs = plainSearch("zzqx", other);
+    check(mine && theirs && !mine.total && !mine.closest.length && !theirs.total, `the app finds nothing for “zzqx” on either side (the test needs that)`, 0, [mine && mine.total, theirs && theirs.total]);
+    await go(searchHref("zzqx", scope));
+    a = await settle(`“zzqx” on ${scope}`);
+    if (!a) continue;
+    const exp = { state: "none", h2: null, ids: [], none: `No exact match in ${AREA[other]} either.`, oldButtons: [], live: "" };
+    const got = { state: a.state, h2: a.h2, ids: a.ids, none: a.none, oldButtons: a.oldButtons, live: a.live };
+    check(same(got, exp), `${label} “zzqx” on ${AREA[scope]}: no preview, only a line saying ${AREA[other]} has none either`, exp, got);
+    if (scope === "chicago") await shot(`${label}-also-none`);
+  }
+
+  // typed letter by letter on Rest of Illinois, slowly (each letter's search and its other side get drawn): the other side's
+  // count is said once, after the words settle
+  await go("#/search?scope=illinois");
+  if (await waitFor(`!!document.querySelector("#sbody .try")`, "Rest of Illinois suggestions")) {
+    await js(`(() => { window.__said = []; const el = document.querySelector("#salso-live");
+      new MutationObserver(() => { if (el.textContent) window.__said.push(el.textContent); }).observe(el, { childList: true, characterData: true, subtree: true }); })()`);
+    await js(`document.querySelector("#q").focus()`);
+    for (const ch of "vito") { await page("Input.insertText", { text: ch }); await sleep(450); }
+    await waitFor(`location.hash === ${JSON.stringify(searchHref("vito", "illinois"))} && ${ALSO_SETTLED}`, "typed “vito” on Rest of Illinois");
+    await sleep(2500);
+    const said = await js("window.__said");
+    const n = vitoChi.total;
+    check(same(said, [`Also in Chicago: ${n} ${n === 1 ? "place" : "places"}.`]), `${label} typing “vito”: the other side's count is said once`, [`Also in Chicago: ${n} places.`], said);
+    await js(`document.querySelector("#q").blur()`);
+  }
+}
+
+/** The rest of Illinois can't load: a Chicago search with no results keeps the old button (its page then says why, with Try
+ *  again), and nothing claims there's nothing there. A fresh page with the Illinois file blocked; its expected warnings are
+ *  taken out of the run's console problems. */
+async function checkAlsoFailed(label) {
+  const before = problems.length;
+  await page("Network.setBlockedURLs", { urls: ["*/data/v1/illinois-*"] });
+  await page("Page.navigate", { url: "about:blank" });
+  await sleep(100);
+  await page("Page.navigate", { url: hashURL(searchHref("hewn", "chicago")) });
+  if (await waitFor(`document.readyState === "complete" && ${ALSO_SETTLED} && document.querySelector("#sbody").dataset.also !== "off"`, "“hewn” on Chicago without the rest of Illinois", 20000)) {
+    const a = await js(ALSO);
+    const exp = { state: "failed", h2: null, ids: [], none: null, oldButtons: ["Search Rest of Illinois for “hewn”"] };
+    const got = { state: a.state, h2: a.h2, ids: a.ids, none: a.none, oldButtons: a.oldButtons };
+    check(same(got, exp), `${label} “hewn” on Chicago when the rest of Illinois can't load: the old button, no claim either way`, exp, got);
+  }
+  await page("Network.setBlockedURLs", { urls: [] });
+  await page("Page.navigate", { url: "about:blank" });
+  await sleep(100);
+  const extra = problems.splice(before);
+  const unexpected = extra.filter((x) => !/Chi Ranked Illinois data|ERR_BLOCKED_BY_CLIENT|illinois-/.test(x));
+  problems.push(...unexpected);
+  check(extra.length > 0, `${label} the blocked Illinois file was noticed (a warning in the console)`, "a warning", extra);
 }
 
 async function checkPlace(id, label, extra) {
@@ -359,6 +571,8 @@ try {
       }
     }
     console.log(`  ${SEARCHES.length} searches checked`);
+    await checkAlso(v.label);
+    console.log("  the other side of a search checked (vito, hewn, hewn bakery, zzqx, the links, typing)");
     const newer = chicago.find((p) => p.newerResult === "Pass") || chicago.find((p) => p.newerResult);
     const failedSince = chicago.find((p) => p.newerResult === "Fail");
     const aka = chicago.find((p) => p.aka && p.aka.includes(" · "));
@@ -390,6 +604,7 @@ try {
     await checkBoard("worst", v.label);
     await checkMap(v.label, v.mobile);
     await typing(v.label);
+    await checkAlsoFailed(v.label);
   }
   where = "all pages";
   const foreign = [...new Set(requests.filter((u) => !u.startsWith(ORIGIN + "/") && !u.startsWith("data:") && u !== "about:blank"))];

@@ -132,8 +132,25 @@ async function loadChicago() {
   }
 }
 
+/** Gives the main thread back for a moment (a message, not a timer, so a background tab doesn't slow it to a crawl): typing
+ *  stays smooth while a long job runs in slices. */
+const pause = (() => {
+  if (typeof MessageChannel !== "function") return () => new Promise((r) => setTimeout(r, 0));
+  const ch = new MessageChannel(), waiting = [];
+  ch.port1.onmessage = () => { const r = waiting.shift(); if (r) r(); };
+  return () => new Promise((r) => { waiting.push(r); ch.port2.postMessage(0); });
+})();
+/** Runs `fn` once the page has painted what it just drew (or within 100 ms if the browser isn't painting, in a hidden tab). */
+function afterPaint(fn) {
+  let done = false;
+  const go = () => { if (!done) { done = true; fn(); } };
+  requestAnimationFrame(() => setTimeout(go, 0));
+  setTimeout(go, 100);
+}
+
 /** The rest of Illinois, loaded the first time something needs it (its scope, Near me, a place or saved place there, search).
- *  After a failure it resolves false at once until someone taps Try again or opens another page, so no view can keep refetching. */
+ *  After a failure it resolves false at once until someone taps Try again or opens another page, so no view can keep refetching.
+ *  Its ~18,000 rows are read in slices (about 1,000 at a time), so a slow phone typing a Chicago search meanwhile never stalls. */
 function ensureIllinois() {
   if (state.il) return Promise.resolve(true);
   if (state.ilError || !state.manifest) return Promise.resolve(false);
@@ -142,8 +159,10 @@ function ensureIllinois() {
     state.ilPromise = (async () => {
       const f = state.manifest.files.illinois;
       const obj = await fetchVerified(f);
-      const il = L.parseIllinois(obj);
+      await pause();
+      const il = await L.parseIllinoisInSteps(obj, pause);
       if (f.rows != null && il.rows !== f.rows) throw new DataProblem("row count");
+      await pause();
       state.il = il;
       state.data = L.combine(state.chi, il);
       state.rankCache.clear();
@@ -392,14 +411,59 @@ function rankRow(p, i, board) {
 /** The words on each Closest matches row (SearchRow.closestNote), so a row seen after the heading scrolls away can't pass
  *  for the place typed. Inside the row's link, so a screen reader reads them with the name too. */
 const CLOSEST_NOTE = "Closest match, not an exact match";
-function searchRow(p, dist, extra = "", closest = false) {
+/** One Search row. `area` ("Chicago", "Rest of Illinois"): a row from the other side of the search (Also in …), which says
+ *  neighborhood or town · cuisine, and names the area for a screen reader too. */
+function searchRow(p, dist, extra = "", closest = false, area = null) {
   const tile = p.grade ? gradeChip(p.grade, "gt") : `<span class="tile">${icon("fork")}</span>`;
-  const addr = [p.addr, p.placeLine].filter((x) => x != null).join(" · ");
+  const addr = area ? [p.isChicago ? p.hood : p.city, p.cuisine].filter((x) => x != null).join(" · ") : [p.addr, p.placeLine].filter((x) => x != null).join(" · ");
   const right = (p.score != null ? `<span class="score"><span class="sr">inspection score </span>${p.score}</span>` : "")
     + (dist != null ? `<span class="dist">${esc(L.distLabel(dist))}</span>` : "");
   return `<li class="srow-li"><a class="rrow srow" href="${placeHref(p)}">${tile}<span class="rmain"><span class="rname">${esc(p.name)}</span>`
-    + `<span class="rsub">${esc(addr)}</span>${closest ? `<span class="rclose">${icon("question")}<span>${CLOSEST_NOTE}</span></span>` : ""}`
+    + `<span class="rsub">${esc(addr)}${area ? `<span class="sr"> · in ${esc(area)}</span>` : ""}</span>${closest ? `<span class="rclose">${icon("question")}<span>${CLOSEST_NOTE}</span></span>` : ""}`
     + `${badgesHTML(p)}</span>${right ? `<span class="rmetric">${right}</span>` : ""}</a>${extra}</li>`;
+}
+
+// ---- the other side of a search: "Also in Chicago" under Rest of Illinois results, "In Rest of Illinois" under a Chicago
+// search with no exact match, and so on. Only for typed words (not Near me).
+const AREA = { chicago: "Chicago", illinois: "Rest of Illinois" };
+const ALSO_ROWS = 3;
+const alsoMemo = { data: null, found: new Map() };
+/** The other side's exact matches for the words searched here, worked out by that side's own search (logic.js search, the
+ *  one its Search page runs): the same order and count, with no filters, since the link there starts filters over as switching
+ *  areas does. Never its Closest matches. While the rest of Illinois isn't in: { state: "loading" } or { state: "failed" }.
+ *  `compute: false` only returns what's already worked out ({ state: "later" } otherwise). */
+function otherSide(q, scope, compute = true) {
+  const other = scope === "chicago" ? "illinois" : "chicago";
+  if (other === "illinois" && !state.il) return { other, state: state.ilError ? "failed" : "loading" };
+  if (alsoMemo.data !== D()) { alsoMemo.data = D(); alsoMemo.found.clear(); }
+  const key = `${other}\n${q}`;
+  let o = alsoMemo.found.get(key);
+  if (!o) {
+    if (!compute) return { other, state: "later" };
+    const hits = L.search(D(), q, other, L.newFilters());
+    o = { other, state: hits.length ? "shown" : "none", total: hits.length, rows: hits.slice(0, ALSO_ROWS) };
+    alsoMemo.found.set(key, o);
+    if (alsoMemo.found.size > 12) alsoMemo.found.delete(alsoMemo.found.keys().next().value);
+  }
+  return o;
+}
+/** The other side's first rows under a heading, and a link there that keeps the words (`zero`: nothing matches here exactly). */
+function alsoHTML(o, q, zero) {
+  const area = AREA[o.other], text = q.trim();
+  const graded = o.rows.some((p) => p.grade != null);
+  const cap = o.other === "illinois" ? "No grades outside Chicago: the City inspects only Chicago restaurants." : graded ? GRADES_CAPTION : "";
+  const link = o.total > 1 ? `See all ${n(o.total)} in ${area}` : `Search ${area} for “${esc(text)}”`;
+  return `<div class="also" data-area="${o.other}"><h2 id="also-h">${zero ? "In" : "Also in"} ${area}</h2>`
+    + `<ol role="list" class="rlist also-list" aria-labelledby="also-h">${o.rows.map((p) => searchRow(p, null, "", false, area)).join("")}</ol>`
+    + (cap ? `<p class="cap">${cap}</p>` : "")
+    + `<div class="row"><a class="btn small" href="${searchHash({ q, scope: o.other })}" data-also-link>${link}</a></div></div>`;
+}
+/** What a Search with no exact match says about the other side, in its panel: nothing there either, or that it's looking. */
+function alsoLine(o) {
+  const area = AREA[o.other];
+  if (o.state === "none") return `<p class="also-none">No exact match in ${area} either.</p>`;
+  if (o.state === "loading") return `<p class="also-wait"><span class="spin" aria-hidden="true"></span>Looking in ${area}…</p>`;
+  return "";
 }
 function moreButton(total, shown, cap) {
   if (shown >= Math.min(total, cap)) return "";
@@ -647,7 +711,7 @@ function viewSearch(view, route) {
   view.innerHTML = `<section class="view search"><div class="cols">
     <div class="colhead"><span class="kicker" id="skick"></span><h1 class="h1" id="stitle"></h1>
       <div class="countline" id="shead"><p class="n" id="scount" aria-live="polite"></p><span class="spacer"></span><span class="m-only" id="sfbtn"></span><span id="snear"></span></div>
-      <p class="cap" id="scap" hidden></p>${skipToFilters("spanel")}</div>
+      <p class="cap" id="scap" hidden></p><p class="sr" id="salso-live" aria-live="polite" aria-atomic="true"></p>${skipToFilters("spanel")}</div>
     <div class="colbody" id="sbody"></div>
     <aside class="colside" aria-label="Filters"><div class="fpanel${state.filtersOpen ? "" : " closed"}" id="spanel"></div></aside></div></section>`;
   const root = view.firstElementChild;
@@ -660,10 +724,49 @@ function viewSearch(view, route) {
   };
   bindFilters(panel, () => ctx.f, (g) => { ctx.f = g; state.shown = 100; replaceHash(searchHash({ q: ctx.q, scope: ctx.scope, near: ctx.near, f: g })); draw(); },
     () => { state.filtersOpen = false; draw(); const b = $("[data-toggle-filters]"); if (b) b.focus(); });
-  let panelKey = null, pendingOrder = false;
+  let panelKey = null, pendingOrder = false, ilWait = false;
   // the one live region for the count: it stays in the page, so a screen reader hears each new count
   const setCount = (html) => { const el = $("#scount"); if (el.innerHTML !== html) el.innerHTML = html; };
+  // The other side of the search (otherSide). Under a list, it's worked out after the list has painted and typing has paused
+  // (a new letter cancels it), so it never slows the results; with no exact match here it's part of the panel at once.
+  let alsoJob = null, sayTimer = null, said = null;
+  const cancelAlso = () => { if (alsoJob) { alsoJob(); alsoJob = null; } };
+  // its count goes to a screen reader once, a second after the words settle: never letter by letter, never again for a redraw
+  const announceAlso = (o, zero) => {
+    clearTimeout(sayTimer);
+    const el = $("#salso-live");
+    if (!o || o.state !== "shown") { said = null; if (el.textContent) el.textContent = ""; return; }
+    const key = `${o.other}\n${ctx.q.trim()}`;
+    if (key === said) return;
+    const msg = `${zero ? "In" : "Also in"} ${AREA[o.other]}: ${plural(o.total, "place", "places")}.`;
+    sayTimer = setTimeout(() => { said = key; el.textContent = msg; }, 1000);
+  };
+  const fillAlso = () => {
+    const slot = $("#salso");
+    if (!slot || !ctx) return;
+    const o = otherSide(ctx.q, ctx.scope);
+    $("#sbody").dataset.also = o.state;
+    if (o.state === "shown") slot.outerHTML = alsoHTML(o, ctx.q, false); else slot.remove();
+    announceAlso(o, false);
+    fitSide();
+  };
+  let alsoAt = 0;
+  const scheduleAlso = () => {
+    let idle = null;
+    const t = setTimeout(() => {
+      if (typeof requestIdleCallback === "function") idle = requestIdleCallback(() => { alsoJob = null; fillAlso(); }, { timeout: 600 });
+      else { alsoJob = null; fillAlso(); }
+    }, 150);
+    alsoJob = () => { clearTimeout(t); if (idle != null && typeof cancelIdleCallback === "function") cancelIdleCallback(idle); };
+    alsoAt = performance.now();
+  };
+  // a letter typed while it waits: wait for the next pause (a job this same letter's search just set up stays)
+  const onType = (e) => { if (alsoJob && alsoAt < e.timeStamp) cancelAlso(); };
+  input().addEventListener("input", onType);
   const draw = () => {
+    cancelAlso();
+    clearTimeout(sayTimer);
+    $("#sbody").dataset.also = "off";
     const { q, scope, near, f } = ctx;
     const d = D();
     const text = q.trim();
@@ -685,15 +788,20 @@ function viewSearch(view, route) {
       $("#sbody").innerHTML = state.ilError ? ilErrorHTML() : ilLoadingHTML();
       // once it's in (or has failed), draw again; a failure stays put until Try again, so this never loops
       if (!state.ilError) afterIllinois(() => { ctx = read(parseHash()); draw(); });
+      announceAlso(null);
       syncSheet();
       return;
     }
     $("#sfbtn").innerHTML = filterButton(f, state.filtersOpen);
-    // Chicago search: the rest of Illinois' town names and cuisines are part of the app's search index, so bring them in
-    // (in the background); draw again when they arrive if the order could change, and if they fail, stop waiting for them
-    if (!state.il && !state.ilError && !showsSuggestions) afterIllinois((ok) => { if (ok || pendingOrder) { ctx = read(parseHash()); draw(); } });
+    // Chicago search: the rest of Illinois' town names and cuisines are part of the app's search index, and its places are the
+    // other side of the search, so bring them in, in the background once this has painted; draw again when they arrive (the
+    // order may change, the other side shows up) or fail (then stop waiting for them)
+    if (!state.il && !state.ilError && !showsSuggestions && !ilWait) {
+      ilWait = true;
+      afterPaint(() => ensureIllinois().then(() => { ilWait = false; if (root.isConnected) { ctx = read(parseHash()); draw(); } }));
+    }
     pendingOrder = false;
-    if (showsSuggestions) { setCount(""); drawSuggestions(scope, f); setShowCount(panel, null); syncSheet(); return; }
+    if (showsSuggestions) { setCount(""); drawSuggestions(scope, f); setShowCount(panel, null); announceAlso(null); syncSheet(); return; }
     let places = [], total = 0, outOfArea = null, point = null, status = "ok", listed = true, closest = [];
     if (near && state.geo.status === "ok") {
       point = state.geo.point;
@@ -724,6 +832,13 @@ function viewSearch(view, route) {
     else if (hasGrades) cap = GRADES_CAPTION;
     else if (scope === "illinois" && !near) cap = "No grades outside Chicago: the City inspects only Chicago restaurants.";
     $("#scap").hidden = !cap; $("#scap").textContent = cap || "";
+    // the other side of the search (otherSide), for typed words once this side's list is settled: with no exact match here,
+    // worked out now (it's part of the panel); under a list, from what's already worked out, or after the list has painted
+    const zero = !places.length;
+    const also = !near && text !== "" && listed && !pendingOrder ? otherSide(q, scope, zero) : null;
+    const other = scope === "chicago" ? "illinois" : "chicago";
+    // the old button to the other side, only when the rest of Illinois couldn't load (its page then says so, with Try again)
+    const otherButton = !near && text !== "" && (!also || also.state === "failed");
     let html = "";
     if (near && !point) html += locationPanel(status);
     if (pendingOrder) {
@@ -732,30 +847,37 @@ function viewSearch(view, route) {
       html += `<div class="panel-note"><h2>You're about ${n(Math.round(outOfArea / 1609.344))} miles from Illinois</h2><p>Near me covers Chicago and the rest of Illinois. You can still browse every list, or search by name, neighborhood or ZIP.</p>
         <div class="row"><a class="btn small" href="${boardHash("cleanest", L.newFilters())}">Cleanest Kitchens</a><a class="btn small" href="${searchHash({})}">Search Chicago</a></div></div>`;
     } else if (!places.length && !closest.length && listed) {
-      const other = scope === "chicago" ? "illinois" : "chicago";
-      html += `<div class="empty">${icon("search")}<h2>${text ? `No results for “${esc(text)}”` : "Nothing matches"}</h2><p>${L.activeCount(f) ? "Your filters may be hiding places." : "Check the spelling or try a new search."}</p><div class="row">`
-        + (L.activeCount(f) ? `<button class="btn" type="button" data-clear-filters>Clear filters</button>` : "")
-        + (!near && text ? `<a class="btn" href="${searchHash({ q, scope: other })}">Search ${other === "chicago" ? "Chicago" : "Rest of Illinois"} for “${esc(text)}”</a>` : "") + `</div></div>`;
+      const row = (L.activeCount(f) ? `<button class="btn" type="button" data-clear-filters>Clear filters</button>` : "")
+        + (otherButton ? `<a class="btn" href="${searchHash({ q, scope: other })}">Search ${AREA[other]} for “${esc(text)}”</a>` : "");
+      html += `<div class="empty">${icon("search")}<h2>${text ? `No results for “${esc(text)}”` : "Nothing matches"}</h2><p>${L.activeCount(f) ? "Your filters may be hiding places." : "Check the spelling or try a new search."}</p>`
+        + (row ? `<div class="row">${row}</div>` : "") + (also ? alsoLine(also) : "") + `</div>`;
+      if (also && also.state === "shown") html += alsoHTML(also, q, true);
     }
     if (places.length && !pendingOrder) {
       const shown = Math.min(state.shown, places.length);
       html += `<ol role="list" class="rlist">${places.slice(0, shown).map((p) => searchRow(p, point ? L.distance(p, point) : null)).join("")}</ol>`;
       html += moreButton(places.length, shown, L.SEARCH_LIMIT);
       if (shown >= places.length && total > places.length) html += `<p class="cap">Showing the first ${n(places.length)} of ${n(total)}. Add a word, a neighborhood or a filter to narrow it.</p>`;
+      if (also && also.state === "shown") html += alsoHTML(also, q, false);
+      else if (also && also.state === "later") html += `<div id="salso"></div>`;
     }
     // no exact match: the closest ones, under a heading that says so (never as results, never in the count), and every row
-    // says so too (SearchTab.closestHeader, SearchRow.closest)
+    // says so too (SearchTab.closestHeader, SearchRow.closest). Exact matches on the other side come first.
     if (closest.length && !places.length && !pendingOrder) {
-      const other = scope === "chicago" ? "illinois" : "chicago";
+      if (also && also.state === "shown") html += alsoHTML(also, q, true);
+      const row = (L.activeCount(f) ? `<button class="btn small" type="button" data-clear-filters>Clear filters</button>` : "")
+        + (otherButton ? `<a class="btn small" href="${searchHash({ q, scope: other })}">Search ${AREA[other]}</a>` : "");
       html += `<div class="closest-head"><h2>No exact match for “${esc(text)}”</h2>`
         + `<p>${L.activeCount(f) ? "These places match only some of your words, or spell them differently. Your filters may be hiding others."
           : "These places match only some of your words, or spell them differently. Check the name and address."}</p>`
-        + ((L.activeCount(f) || (!near && text)) ? `<div class="row">${L.activeCount(f) ? `<button class="btn small" type="button" data-clear-filters>Clear filters</button>` : ""}`
-          + (!near && text ? `<a class="btn small" href="${searchHash({ q, scope: other })}">Search ${other === "chicago" ? "Chicago" : "Rest of Illinois"}</a>` : "") + `</div>` : "")
+        + (row ? `<div class="row">${row}</div>` : "") + (also ? alsoLine(also) : "")
         + `<h3 class="flabel" id="closest-h">Closest matches</h3></div>`;
       html += `<ol role="list" class="rlist closest" aria-labelledby="closest-h">${closest.map((p) => searchRow(p, null, "", true)).join("")}</ol>`;
     }
     $("#sbody").innerHTML = html;
+    $("#sbody").dataset.also = also ? also.state : "off";
+    if (also && also.state === "later") scheduleAlso();
+    announceAlso(also, zero);
     if (keep) { const again = [...$("#sbody").querySelectorAll("a[href]")].find((a) => a.getAttribute("href") === keep); if (again) again.focus({ preventScroll: true }); }
     if (keepLoc) {
       const again = $("#sbody [data-locate]") || $("#sbody [data-loc]");
@@ -784,7 +906,7 @@ function viewSearch(view, route) {
   root.addEventListener("click", (e) => {
     const t = e.target;
     if (t.closest("[data-toggle-filters]")) { state.filtersOpen = !state.filtersOpen; draw(); if (state.filtersOpen) panel.querySelector("button, select, input").focus(); }
-    else if (t.closest("[data-more]")) { const was = state.shown; state.shown += 100; draw(); const r = $("#sbody").querySelectorAll(".rrow")[was]; if (r) r.focus(); }
+    else if (t.closest("[data-more]")) { const was = state.shown; state.shown += 100; draw(); const r = $("#sbody").querySelectorAll("ol.rlist:not(.also-list) .rrow")[was]; if (r) r.focus(); }
     else if (t.closest("[data-clear-filters]")) { ctx.f = L.newFilters(); replaceHash(searchHash({ q: ctx.q, scope: ctx.scope, near: ctx.near })); syncFilters(panel, ctx.f); draw(); }
     else if (t.closest("[data-near]")) { requestLocation(); go(searchHash({ near: true })); }
     else if (t.closest("[data-locate]")) { requestLocation(); draw(); }
@@ -792,7 +914,7 @@ function viewSearch(view, route) {
     else if (t.closest("[data-skip-filters]")) { e.preventDefault(); focusFilters(root); }
   });
   state.onGeo = () => { if (ctx && ctx.near) draw(); };
-  state.cleanup = () => { state.onGeo = null; };
+  state.cleanup = () => { state.onGeo = null; cancelAlso(); clearTimeout(sayTimer); input().removeEventListener("input", onType); };
   state.mounted.update = (r) => { ctx = read(r); draw(); };
   ctx = read(route);
   draw();

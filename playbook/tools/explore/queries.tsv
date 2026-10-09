@@ -145,6 +145,17 @@ bundled	chicago	skyway doghous
 bundled	illinois	lou malnattis
 bundled	illinois	zzqx
 bundled	illinois	portilos naperville
+# --- both sides of one search: check_browser.mjs compares the other side's preview (Also in Chicago, In Rest of Illinois)
+# with these. Nick's reports of 2026-10-09: "vito" on Rest of Illinois never showed Chicago's Vito & Nicks, "hewn" on Chicago
+# said only "No results" though Hewn (Evanston) is listed; "hewn bakery" has Closest matches in Chicago, "zzqx" nothing anywhere
+bundled	chicago	vito
+bundled	illinois	vito
+bundled	chicago	hewn
+bundled	illinois	hewn
+bundled	chicago	hewn bakery
+bundled	illinois	hewn bakery
+bundled	chicago	zzqx
+bundled	illinois	pizza
 # --- the rules fixture beyond the test's own queries
 rules	chicago	wing
 rules	chicago	wings

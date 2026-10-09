@@ -38,6 +38,7 @@ const MUTANTS = [
   ["logic.js", "explainer drifts", "(${RECENT_FAIL_DAYS} days before that date)", "(${RECENT_FAIL_DAYS} days before then)"],
   ["logic.js", "home card says every", "sub: \"Search nearly every restaurant, café, bakery and tavern in the city\"", "sub: \"Search every restaurant, café, bakery and tavern in the city\""],
   ["app.js", "Closest matches row note reworded", "const CLOSEST_NOTE = \"Closest match, not an exact match\";", "const CLOSEST_NOTE = \"Closest match\";"],
+  ["logic.js", "read in slices, the rest of Illinois skips a row after each pause", "if (chunk > 0 && ++k % chunk === 0) yield;", "if (chunk > 0 && ++k % chunk === 0) { yield; continue; }"],
 ];
 
 const root = join(resolve(opt.work), "mutants");

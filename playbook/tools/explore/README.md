@@ -42,11 +42,18 @@ repo is expected next to this one (`CHI_EATS=/path` otherwise). Chrome runs head
    `logic.js` on it and on the two fixtures, and compares with the oracle. It must report **0 differences**. It also
    checks the lines `app.js` copies from the app's SwiftUI views (Closest matches wording, "Latest in our records",
    "Newer City result", the home cards): each must still be in the Swift file and in the web files, so a change on
-   either side shows up here. And no "every Chicago restaurant" claim (say "nearly every"), and no old address.
+   either side shows up here. And no "every Chicago restaurant" claim (say "nearly every"), and no old address. And
+   `parseIllinoisInSteps`, which the page uses to read the rest of Illinois in slices (so typing never stalls while it
+   comes in), must give exactly what `parseIllinois` gives.
 4. **Browser** (`check_browser.mjs`). Headless Chrome against the mirror on `127.0.0.1`, at 1440x900 and as a
    390x844 phone (touch, a phone user agent, 3x pixels). Against the oracle: about 40 searches (rows in order, the
    count, Closest matches with their heading, wording, buttons and the "Closest match, not an exact match" line on
-   every row, "No results"), a search typed into the box, place pages (a newer City result and its labels, aka shown as
+   every row, "No results"), the other side of each search (under Rest of Illinois results "Also in Chicago", under a
+   Chicago search with no exact match "In Rest of Illinois", and so on: that side's own first 3 rows and count from the
+   oracle's search of the same words there, never its Closest matches, before any Closest matches here, the link there
+   keeping the words, the count said once to a screen reader, a plain line when it has none, the old button when the
+   rest of Illinois can't load; Nick's "vito" and "hewn" reports of 2026-10-09 are cases here, with their words searched
+   on both sides in `queries.tsv`), a search typed into the box, place pages (a newer City result and its labels, aka shown as
    "A · B", hidden alt names absent from the page, a rest-of-Illinois place, an id that isn't in the data), the Failed
    latest and Lowest scores boards (rows, counts, explainer, result lines), the home grid's counts, and the map (dots
    drawn, the legend's count, a focused place's card on screen above the phone's tab bar, the Illinois map). On every
@@ -56,8 +63,9 @@ repo is expected next to this one (`CHI_EATS=/path` otherwise). Chrome runs head
    as the runbook does before a push. `explore/` gets its site-wide checks (canonical, og:url, images and JSON-LD on
    https://chicago.eatsranked.com/, the eatsranked.com footer link, no old address, no "every Chicago restaurant").
    It must end `PROBLEMS: 0`.
-6. **Mutants** (`mutate.mjs`, with `--mutants`). Plants 22 small bugs one at a time in a copy of the web app (a stem
-   rule off by one, Closest matches' limits and weights, alt names dropped, the 90-day window, a reworded row note...)
+6. **Mutants** (`mutate.mjs`, with `--mutants`). Plants 23 small bugs one at a time in a copy of the web app (a stem
+   rule off by one, Closest matches' limits and weights, alt names dropped, the 90-day window, a reworded row note, a row
+   skipped when the rest of Illinois is read in slices...)
    and requires the logic test to catch each. Run it after changing `check_logic.mjs` or the oracle.
 
 Each step also runs alone; the commands are in `run_all.sh`.

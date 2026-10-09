@@ -790,13 +790,30 @@ export function parseChicago(obj) {
 
 /** DataLoader.loadAll's rest-of-Illinois half. */
 export function parseIllinois(obj) {
+  const steps = illinoisSteps(obj, 0);
+  let r = steps.next();
+  while (!r.done) r = steps.next();
+  return r.value;
+}
+/** parseIllinois in slices of `chunk` rows, awaiting `pause()` between them, so a page can read its ~18,000 rows without
+ *  holding the main thread for the whole file (a slow phone typing a search meanwhile). The same code as parseIllinois
+ *  runs, in the same order, so the result is the same. */
+export async function parseIllinoisInSteps(obj, pause, chunk = 1000) {
+  const steps = illinoisSteps(obj, chunk);
+  let r = steps.next();
+  while (!r.done) { await pause(); r = steps.next(); }
+  return r.value;
+}
+function* illinoisSteps(obj, chunk) {
   const il = table(obj, "Illinois");
   const cuisines = strList(il.meta.cuisines), citiesMeta = strList(il.meta.cities), brands = strList(il.meta.brands);
   const { s, i, d, b, alt } = reader(il.cols);
   const shared = sharedWords();
   const out = [];
   const taken = new Map();
+  let k = 0;
   for (const row of il.rows) {
+    if (chunk > 0 && ++k % chunk === 0) yield;
     if (!Array.isArray(row)) continue;
     const name = s(row, "name");
     if (name == null) continue;
@@ -824,6 +841,7 @@ export function parseIllinois(obj) {
   const count = new Map();
   for (const p of out) if (!p.venue) count.set(p.city, (count.get(p.city) || 0) + 1);
   const cities = [...count.keys()].sort((a, b) => count.get(b) - count.get(a) || cmpStr(nfc(a), nfc(b)));
+  if (chunk > 0) yield;
   return { illinois: bestFirst(out), cuisines, cities, overtureRelease: typeof il.meta.overture_release === "string" ? il.meta.overture_release : "",
     rows: il.rows.length, meta: il.meta };
 }
