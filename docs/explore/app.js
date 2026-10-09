@@ -160,7 +160,8 @@ function ensureIllinois() {
       const f = state.manifest.files.illinois;
       const obj = await fetchVerified(f);
       await pause();
-      const il = await L.parseIllinoisInSteps(obj, pause);
+      // a cached logic.js from before parseIllinoisInSteps (Pages caches each file for 10 minutes) falls back to the one-step parse
+      const il = L.parseIllinoisInSteps ? await L.parseIllinoisInSteps(obj, pause) : L.parseIllinois(obj);
       if (f.rows != null && il.rows !== f.rows) throw new DataProblem("row count");
       await pause();
       state.il = il;
