@@ -354,7 +354,11 @@ def data_pages():
         if len(ids) > ROWS: bad(name, len(ids), "rows, more than", ROWS)
         if kind == "lists":
             total = n.get("places") or 0
-            if len(ids) != min(ROWS, total) or ("shown" in n) != (total > ROWS): bad(name, "rows", len(ids), "for", total, "places")
+            # a list page shows min(ROWS, total) rows, or stops earlier only before a run of tied places it can't order
+            # (static_pages.mjs tieCut: Oldest), and then says how many tie; "shown" says how many when it isn't all
+            full = min(ROWS, total)
+            if not 0 < len(ids) <= full or (len(ids) < full) != ("tied" in n): bad(name, "rows", len(ids), "for", total, "places", "with a tie note" if "tied" in n else "")
+            if ("shown" in n) != (len(ids) < total) or n.get("shown", len(ids)) != len(ids): bad(name, "says it shows", n.get("shown"), "of", total, "but has", len(ids), "rows")
             ranks = [int(x) for x in re.findall(r'<span class="sr">Rank </span>(\d+)</span>', src)]
             if ranks != list(range(1, len(ids) + 1)): bad(name, "ranks aren't 1 to", len(ids))
             for i, (_, row) in zip(ids, rows):

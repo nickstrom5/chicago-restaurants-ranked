@@ -108,7 +108,17 @@ const placeHref = (up, p) => `${up}explore/#/place/${encodeURIComponent(p.id)}`;
 const boardHref = (up, id) => `${up}explore/#/board/${id}`;
 const searchHref = (up, key, value) => `${up}explore/#/search?${new URLSearchParams([[key, value]]).toString()}`;
 const sideName = (s) => (s === "Central" ? "Downtown" : `${s} Side`);   // the app's own words for a side (filters, search)
-const gradeChip = (g, cls = "") => `<span class="g g${g}${cls ? " " + cls : ""}"><span class="sr">Grade </span>${g}</span>`;
+// a screen reader hears "our grade A", as in the app (build 3), not a bare "Grade A" that could pass for the City's
+const gradeChip = (g, cls = "") => `<span class="g g${g}${cls ? " " + cls : ""}"><span class="sr">Our grade </span>${g}</span>`;
+/** A row's badges (logic.js badges). The chain badge reads "Chain · 35"; a screen reader also hears what 35 counts, as in
+ *  the app ("Chain, 35 locations"). Every place on these pages is in Chicago, and its number is its Chicago locations. */
+const badgesHTML = (p, hideMichelin) => {
+  const b = L.badges(p, hideMichelin);
+  return b.length ? `<span class="badges">${b.map(([t, k]) => `<span class="badge ${k}">${esc(t)}${p.isChain && t === `Chain · ${p.chain}` ? `<span class="sr"> locations in Chicago</span>` : ""}</span>`).join("")}</span>` : "";
+};
+/** A community area's name in a sentence: Chicagoans say "the Loop" and "the Near North Side", not "Loop". */
+const AREA_THE = new Set(["Loop", "Near North Side", "Near South Side", "Near West Side", "Lower West Side", "East Side"]);
+const areaIn = (name) => (AREA_THE.has(name) ? `the ${name}` : name);
 const ldJSON = (o) => JSON.stringify(o, null, 1).replace(/</g, "\\u003c");
 const FORK = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3v6.5a2.2 2.2 0 0 0 2.2 2.2h0a2.2 2.2 0 0 0 2.2-2.2V3M8.7 3v18M17.5 21V3c-2.3 1.4-3.3 4.2-3.3 7.6V13h3.3"/></svg>`;
 
@@ -124,6 +134,40 @@ const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eig
 const word = (k) => WORDS[k] ?? n(k);
 /** The first candidate that fits in max characters (titles 60, descriptions 160, so search results don't cut them), else the last. */
 const fit = (max, ...xs) => xs.find((x) => x.length <= max) ?? xs[xs.length - 1];
+
+// ------------------------------------------------------------------------------------------------ ties (Oldest, Newest)
+// Records give only a year, so these lists hold long runs of places the board can't put in a meaningful order. The pages
+// keep logic.js's order (the web version's and the app's) and only say honestly where a run starts (QA6-SITE-04).
+/** Where a page of board `id` stops. Oldest orders places by year, then iconic points, then inspection score and name, which
+ *  says nothing about which opened first: when a run with the same year and the same iconic points crosses row ROWS, the
+ *  page stops before it (unless the run starts at row 1) and says how many places tie. { rows, tie: { size, words } | null } */
+function tieCut(id, list) {
+  const rows = Math.min(ROWS, list.length);
+  if (id !== "oldest" || list.length <= ROWS) return { rows, tie: null };
+  const key = (p) => `${p.since}|${p.iconPts ?? 0}`, k = key(list[ROWS - 1]);
+  if (key(list[ROWS]) !== k) return { rows, tie: null };
+  let from = ROWS - 1;
+  while (from > 0 && key(list[from - 1]) === k) from -= 1;
+  if (from === 0) return { rows, tie: null };
+  let to = ROWS;
+  while (to < list.length && key(list[to]) === k) to += 1;
+  const run = list.slice(from, to), pts = L.metric("iconic", run[0])[0];
+  const when = run.every((p) => p.sinceFloor) ? "was licensed by 2002"
+    : run.every((p) => p.sinceVerified) ? `opened in ${run[0].since}` : run.every((p) => !p.sinceVerified) ? `was first recorded in ${run[0].since}` : `is from ${run[0].since}`;
+  return { rows: from, tie: { size: run.length, words: `each ${when} and has ${pts} iconic ${pts === "1" ? "point" : "points"}` } };
+}
+/** Newest lists same-year places A to Z. When the year at the page's last row goes on past it, the heading says so (rather
+ *  than "Top 100") and names that year: { from (its first row on the page, 0-based), total in the list, words } | null. */
+function sameYear(id, list, rows) {
+  if (id !== "newest" || list.length <= rows || !rows) return null;
+  const y = list[rows - 1].since;
+  if (y == null || list[rows].since !== y) return null;
+  const run = list.filter((p) => p.since === y);
+  let from = rows - 1;
+  while (from > 0 && list[from - 1].since === y) from -= 1;
+  const words = run.every((p) => p.sinceVerified) ? `places that opened in ${y}` : run.every((p) => !p.sinceVerified) ? `places first recorded in ${y}` : `places from ${y}`;
+  return { from, total: run.length, words };
+}
 
 // ------------------------------------------------------------------------------------------------ page frame
 function page({ path, title, desc, index, crumbs, h1, kicker, body, generatedNote }) {
@@ -219,11 +263,15 @@ ${body}
 `;
 }
 
-/** The grade note, the records date and the City source, as one box on every page. */
-function sourceBox(rt, extra = "") {
+/** The records date and the City source, in one short line under the lede, so a phone reaches the first row within about a
+ *  screen (QA6-SITE-05). Its <time> is the page's only one (verify.py reads it). */
+const sourceLine = (rt) => `    <p class="src">City records through <time datetime="${rt}">${longDate(rt)}</time>. Source: <a href="${CITY_DATA}" rel="noopener">City of Chicago Food Inspections</a> on the Chicago Data Portal.</p>`;
+/** The grade note and how the data is rebuilt, as one box after the list (the caption right above the rows already says the
+ *  grades are ours, not official). */
+function aboutBox(extra = "") {
   return `    <div class="box">
       <p>${GRADES_LONG}</p>
-      <p>City records through <time datetime="${rt}">${longDate(rt)}</time>. About once a week we rebuild the data from the City’s newest public records, and these pages with it. Source: <a href="${CITY_DATA}" rel="noopener">City of Chicago Food Inspections</a> on the Chicago Data Portal.${extra}</p>
+      <p>About once a week we rebuild the data from the City’s newest public records, and these pages with it.${extra}</p>
     </div>`;
 }
 
@@ -243,8 +291,7 @@ function placeRow(up, p, other) {
 function rankRow(up, p, i, board, data) {
   const m = L.metric(board, p, data.recordsYear);
   const sub = [p.hood, p.cuisine].filter((x) => x != null).join(" · ");
-  const b = L.badges(p, board === "honors");
-  const badges = b.length ? `<span class="badges">${b.map(([t, k]) => `<span class="badge ${k}">${esc(t)}</span>`).join("")}</span>` : "";
+  const badges = badgesHTML(p, board === "honors");
   const grade = board !== "honors" && p.grade ? gradeChip(p.grade) : "";
   return `      <li><a class="rrow" href="${placeHref(up, p)}"><span class="rank${i < 3 ? " podium" : ""}${i >= 99 ? " long" : ""}"><span class="sr">Rank </span>${i + 1}</span>`
     + `<span class="rmain"><span class="rname">${esc(p.name)}</span><span class="rsub">${esc(sub)}</span>${badges}</span>`
@@ -298,22 +345,23 @@ function build({ chi, data }) {
     const shown = a.r.places.slice(0, ROWS);
     const index = a.c.graded >= THIN;
     const siblings = areas.filter((x) => x !== a && x.side === a.side);
-    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(a.r.total)}</span> ${a.r.total === 1 ? "place" : "places"} in ${esc(a.name)}, a Chicago community area${a.side === "Central" ? " Downtown" : a.side ? ` on the ${esc(sideName(a.side))}` : ""} (${VENUES}). ${gradeLine(a.c)}</p>
-${sourceBox(rt, " Each place’s page in the web version links to its own City inspection records.")}
+    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(a.r.total)}</span> ${a.r.total === 1 ? "place" : "places"} in ${esc(areaIn(a.name))}, a Chicago community area${a.side === "Central" ? " Downtown" : a.side ? ` on the ${esc(sideName(a.side))}` : ""} (${VENUES}). ${gradeLine(a.c)}</p>
+${sourceLine(rt)}
     <h2>Places, best inspection score first</h2>
     <p class="cap">${GRADES_CAPTION} The order is the web version’s for this neighborhood: highest score first, ties by name, places without a score last.</p>
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p) => placeRow(up, p, p.cuisine)).join("\n")}
     </ol>
-    <p class="more">${a.r.total > shown.length ? `Showing the first <span data-n="shown">${n(shown.length)}</span> of ${n(a.r.total)}. ` : ""}<a href="${searchHref(up, "hood", a.name)}">${a.r.total > shown.length ? `See all ${n(a.r.total)} in the web version` : `Filter and map ${esc(a.name)} in the web version`}</a></p>
+    <p class="more">${a.r.total > shown.length ? `Showing the first <span data-n="shown">${n(shown.length)}</span> of ${n(a.r.total)}. ` : ""}<a href="${searchHref(up, "hood", a.name)}">${a.r.total > shown.length ? `See all ${n(a.r.total)} in the web version` : `Filter and map ${esc(areaIn(a.name))} in the web version`}</a></p>
+${aboutBox(" Each place’s page in the web version links to its own City inspection records.")}
     ${siblings.length ? `<h2>More ${esc(a.side ? sideName(a.side) : "")} neighborhoods</h2>
     <ul class="links" role="list">${siblings.map((x) => `<li><a href="${up}neighborhoods/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
     ` : ""}<p><a href="${up}neighborhoods/">All Chicago neighborhoods</a> · <a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "area", path, index,
       title: fit(60, `${a.name} Restaurant Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades | Chi Ranked`),
-      desc: fit(160, `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${a.name}, Chicago, from City inspection records through ${longDate(rt)}`
+      desc: fit(160, `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${areaIn(a.name)}, Chicago, from City inspection records through ${longDate(rt)}`
         + (a.c.A ? `: ${n(a.c.A)} graded A` : "") + `. Not official City grades.`,
-        `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${a.name}, Chicago, from City inspection records through ${longDate(rt)}. Not official City grades.`),
+        `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${areaIn(a.name)}, Chicago, from City inspection records through ${longDate(rt)}. Not official City grades.`),
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }, { name: a.name, path }],
       h1: `${a.name} restaurant inspection grades`, kicker: `Chicago community area${a.side ? " · " + sideName(a.side) : ""}`, body });
   }
@@ -332,9 +380,10 @@ ${rows.map((a) => `        <tr><th scope="row"><a href="${up}neighborhoods/${a.s
     }).join("\n");
     const noSide = areas.filter((a) => !sides.includes(a.side));
     const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(areaTotal)}</span> places in <span data-n="areas">${n(areas.length)}</span> Chicago community areas (${VENUES}). <span data-n="graded">${n(areaC.graded)}</span> have our A–F grade, <span data-n="A">${n(areaC.A)}</span> of them an A. Pick a neighborhood to see its places, best inspection score first.</p>
-${sourceBox(rt)}
+${sourceLine(rt)}
     <p class="jump">${sides.map((s) => `<a href="#${slugify(sideName(s))}">${esc(sideName(s))}</a>`).join(" · ")}</p>
 ${tables}${noSide.length ? `\n    <h2>Other areas</h2>\n    <ul class="links" role="list">${noSide.map((a) => `<li><a href="${up}neighborhoods/${a.slug}/">${esc(a.name)}</a></li>`).join("")}</ul>` : ""}
+${aboutBox()}
     <p><a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "areas", path: "neighborhoods/", index: true,
       title: "Chicago Restaurant Grades by Neighborhood | Chi Ranked",
@@ -350,13 +399,14 @@ ${tables}${noSide.length ? `\n    <h2>Other areas</h2>\n    <ul class="links" ro
     const shown = c.r.places.slice(0, ROWS);
     const index = c.c.graded >= THIN;
     const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(c.r.total)}</span> Chicago ${c.r.total === 1 ? "place" : "places"} under ${esc(c.name)} (${VENUES}). ${gradeLine(c.c)}</p>
-${sourceBox(rt, cuisineNote + " Each place’s page in the web version links to its own City inspection records.")}
+${sourceLine(rt)}
     <h2>Places, best inspection score first</h2>
     <p class="cap">${GRADES_CAPTION} The order is the web version’s for this cuisine: highest score first, ties by name, places without a score last.</p>
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p) => placeRow(up, p, p.hood)).join("\n")}
     </ol>
     <p class="more">${c.r.total > shown.length ? `Showing the first <span data-n="shown">${n(shown.length)}</span> of ${n(c.r.total)}. ` : ""}<a href="${searchHref(up, "cuisine", c.name)}">${c.r.total > shown.length ? `See all ${n(c.r.total)} in the web version` : `Filter and map ${esc(c.name)} in the web version`}</a></p>
+${aboutBox(cuisineNote + " Each place’s page in the web version links to its own City inspection records.")}
     <h2>More cuisines</h2>
     <ul class="links" role="list">${cuisines.filter((x) => x !== c).map((x) => `<li><a href="${up}cuisines/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
     <p><a href="${up}cuisines/">All cuisines</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a></p>`;
@@ -374,7 +424,7 @@ ${shown.map((p) => placeRow(up, p, p.hood)).join("\n")}
     const total = cuisines.reduce((t, c) => t + c.r.total, 0);
     const cc = gradeCounts(cuisines.flatMap((c) => fullList(L.newFilters({ cuisine: c.name }))));
     const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(total)}</span> Chicago places in <span data-n="cuisines">${n(cuisines.length)}</span> cuisine groups (${VENUES}). <span data-n="graded">${n(cc.graded)}</span> have our A–F grade, <span data-n="A">${n(cc.A)}</span> of them an A. Pick a cuisine to see its places, best inspection score first.</p>
-${sourceBox(rt, cuisineNote)}
+${sourceLine(rt)}
     <div class="tablewrap"><table>
       <caption>Chicago cuisine groups</caption>
       <thead><tr><th scope="col">Cuisine</th><th scope="col" class="num">Places</th><th scope="col" class="num">With our grade</th><th scope="col" class="num">Graded A</th></tr></thead>
@@ -382,6 +432,7 @@ ${sourceBox(rt, cuisineNote)}
 ${cuisines.map((c) => `        <tr><th scope="row"><a href="${up}cuisines/${c.slug}/">${esc(c.name)}</a></th><td class="num">${n(c.r.total)}</td><td class="num">${n(c.c.graded)}</td><td class="num">${n(c.c.A)}</td></tr>`).join("\n")}
       </tbody>
     </table></div>
+${aboutBox(cuisineNote)}
     <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "cuisines", path: "cuisines/", index: true,
       title: "Chicago Restaurant Inspection Grades by Cuisine | Chi Ranked",
@@ -394,38 +445,55 @@ ${cuisines.map((c) => `        <tr><th scope="row"><a href="${up}cuisines/${c.sl
   const boards = L.BOARD_IDS.filter((id) => !L.BOARDS[id].negative).map((id) => {
     const card = L.HOME_CARDS.find((c) => c.board === id && Object.keys(c.filters || {}).length === 0);
     const title = card ? card.title : L.BOARDS[id].title;
-    return { id, B: L.BOARDS[id], title, sub: card ? card.sub : "", slug: slugOf("lists", title), list: L.ranked(data, id, all) };
+    // noCount: the web version's home card shows no count for this list (its size would just repeat the city total), so
+    // these pages don't put one where it reads as the list's verdict ("Chicago Icons · 7,352 places"; QA6-SITE-03)
+    return { id, B: L.BOARDS[id], title, sub: card ? card.sub : "", noCount: !!(card && card.noCount), slug: slugOf("lists", title),
+      list: L.ranked(data, id, all) };
   }).filter((b) => b.list.length > 0);
   const negatives = L.BOARD_IDS.filter((id) => L.BOARDS[id].negative);
   for (const b of boards) {
     const path = `lists/${b.slug}/`, up = "../../";
-    const shown = b.list.slice(0, ROWS);
-    const body = `    <p class="lede"><span data-n="places">${n(b.list.length)}</span> Chicago ${b.list.length === 1 ? "place is" : "places are"} on the ${esc(b.B.title)} list in the web version of Chicago Restaurants: Ranked (${VENUES}). ${shown.length < b.list.length ? `Here are the top <span data-n="shown">${n(shown.length)}</span>, in the list’s own order.` : "Here they all are, in the list’s own order."}</p>
+    const cut = tieCut(b.id, b.list), shown = b.list.slice(0, cut.rows), year = sameYear(b.id, b.list, shown.length);
+    const intro = b.noCount
+      ? `The ${esc(b.B.title)} list in the web version of Chicago Restaurants: Ranked ranks <span data-n="places">${n(b.list.length)}</span> Chicago ${b.list.length === 1 ? "place" : "places"} (${VENUES}).`
+      : `<span data-n="places">${n(b.list.length)}</span> Chicago ${b.list.length === 1 ? "place is" : "places are"} on the ${esc(b.B.title)} list in the web version of Chicago Restaurants: Ranked (${VENUES}).`;
+    const which = year && year.from === 0 ? "first" : "top";
+    const heading = year ? (year.from === 0 ? `First ${n(shown.length)} of ${n(year.total)} ${year.words}, A to Z`
+      : `Top ${n(shown.length)}, ending with the first ${n(shown.length - year.from)} of ${n(year.total)} ${year.words}, A to Z`)
+      : shown.length < b.list.length ? `Top ${n(shown.length)}` : `All ${n(shown.length)}`;
+    const tieNote = cut.tie ? `The next <span data-n="tied">${n(cut.tie.size)}</span> places tie: ${cut.tie.words}, so the records can’t say which of them opened first, and this page stops before them. ` : "";
+    const body = `    <p class="lede">${intro} ${shown.length < b.list.length ? `Here are the ${which} <span data-n="shown">${n(shown.length)}</span>, in the list’s own order.` : "Here they all are, in the list’s own order."}</p>
+${sourceLine(rt)}
     <div class="explainer"><h2>How it’s ranked</h2><p>${esc(L.explainer(b.id, rt))}</p></div>
-${sourceBox(rt, " Each place’s page in the web version links to its own City inspection records.")}
-    <h2>${shown.length < b.list.length ? `Top ${n(shown.length)}` : `All ${n(shown.length)}`}</h2>
+    <h2>${heading}</h2>
     ${b.id !== "honors" ? `<p class="cap">${GRADES_CAPTION}</p>` : ""}${L.NOTES[b.id] ? `<p class="cap">${esc(L.NOTES[b.id])}</p>` : ""}
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p, i) => rankRow(up, p, i, b.id, data)).join("\n")}
     </ol>
-    <p class="more"><a href="${boardHref(up, b.id)}">${shown.length < b.list.length ? `See all ${n(b.list.length)} on this list, with filters, in the web version` : "Filter this list in the web version"}</a></p>
+    <p class="more">${tieNote}<a href="${boardHref(up, b.id)}">${shown.length < b.list.length ? `See all ${n(b.list.length)} on this list, with filters, in the web version` : "Filter this list in the web version"}</a></p>
+${aboutBox(" Each place’s page in the web version links to its own City inspection records.")}
     <h2>More rankings</h2>
     <ul class="links" role="list">${boards.filter((x) => x !== b).map((x) => `<li><a href="${up}lists/${x.slug}/">${esc(x.title)}</a></li>`).join("")}</ul>
     <p><a href="${up}lists/">All rankings</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
+    const some = year ? (year.from === 0 ? `the first ${n(shown.length)} of ${n(year.total)} ${year.words}, A to Z,`
+      : `the top ${n(shown.length)} Chicago places on this list,`)
+      : shown.length < b.list.length ? (b.noCount ? `the top ${n(shown.length)} Chicago places on this list,` : `the top ${n(shown.length)} of ${n(b.list.length)} Chicago places on this list,`)
+      : `all ${n(b.list.length)} Chicago places on this list,`;
     add({ kind: "board", path, index: true,
       title: `${b.title} · Chicago Restaurant Rankings | Chi Ranked`,
-      desc: `${b.sub}: ${shown.length < b.list.length ? `the top ${n(shown.length)} of ${n(b.list.length)}` : `all ${n(b.list.length)}`} Chicago places on this list, with City records through ${longDate(rt)}.`,
+      desc: `${b.sub}: ${some} with City records through ${longDate(rt)}.`,
       crumbs: [home, { name: "Rankings", path: "lists/" }, { name: b.title, path }],
       h1: b.title, kicker: "Chicago restaurant rankings", body });
   }
   {
     const up = "../";
-    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked has <span data-n="lists">${n(boards.length)}</span> rankings of Chicago restaurants built from public records: City of Chicago inspections and licenses, the Cook County Assessor and hand-checked honors. Each one below shows its top places, in the list’s own order.</p>
-${sourceBox(rt)}
+    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked has ${word(L.BOARD_IDS.length)} rankings of Chicago restaurants built from public records: City of Chicago inspections and licenses, the Cook County Assessor and hand-checked honors. Here are <span data-n="lists">${n(boards.length)}</span> of them, each with its top places in the list’s own order.</p>
+${sourceLine(rt)}
     <ul class="cards" role="list">
-${boards.map((b) => `      <li><a href="${up}lists/${b.slug}/"><b>${esc(b.title)}</b><span>${esc(b.sub)}</span><span class="cnt">${plural(b.list.length, "place", "places")}</span></a></li>`).join("\n")}
+${boards.map((b) => `      <li><a href="${up}lists/${b.slug}/"><b>${esc(b.title)}</b><span>${esc(b.sub)}</span>${b.noCount ? "" : `<span class="cnt">${plural(b.list.length, "place", "places")}</span>`}</a></li>`).join("\n")}
     </ul>
     <p>${word(negatives.length).replace(/^./, (ch) => ch.toUpperCase())} more lists, ${negatives.map((id) => ({ worst: "Lowest inspection scores", recentFails: "Failed latest inspection", pests: "Pest citations" }[id] || L.BOARDS[id].title)).join(", ").replace(/, ([^,]*)$/, " and $1")}, are in the <a href="${up}explore/">web version</a>, where each row shows the place’s street address and its latest City result with the date.</p>
+${aboutBox()}
     <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
     add({ kind: "boards", path: "lists/", index: true,
       title: "Chicago Restaurant Rankings from Public Records | Chi Ranked",

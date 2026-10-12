@@ -310,6 +310,14 @@ without one) loads the data exactly as the web version does (manifest, size, sha
 everything from `docs/explore/logic.js`, the port `check_logic.mjs` tests against the app's Swift: board membership,
 order and metrics, explainers, and each area or cuisine list in the order the web version's Search shows it. Each page
 shows at most 100 rows and links to the full list in the web version; every row links to `explore/#/place/<license>`.
+Records give only a year, so Oldest stops before a run of places with the same year and the same iconic points that
+crosses row 100 (their order says nothing about which opened first) and says how many tie, and when Newest's last row is
+partway through a year, its heading names that year's A-to-Z run instead of saying "Top 100" (QA6-SITE-04; the order
+itself stays logic.js's). The lists whose home card in the web version shows no count (Chicago Icons, Oldest, Newest)
+carry none on `lists/` or in their descriptions either (QA6-SITE-03). Each page gives the records date and the City
+source in one line under its intro and the longer grade note after the list, with the "Our grades …, not official"
+caption right above the rows, so a phone reaches the first row within about a screen (QA6-SITE-05). Rows say "Our grade
+A" to a screen reader and a chain badge "Chain · 35 locations in Chicago", as the app does (QA6-SITE-06).
 An area or cuisine with fewer than 20 graded places gets a `noindex,follow` page outside the sitemap (9 areas on the
 September 28 data). The script owns those three folders: it rewrites every page, deletes anything else in them (an area
 that leaves the data loses its page) and rewrites only its own `sitemap.xml` entries, with `lastmod` = the day the data

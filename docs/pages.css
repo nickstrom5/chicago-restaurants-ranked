@@ -63,6 +63,8 @@ main { padding: 8px 0 64px; }
 .kicker { font-size: 13px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--red-ink); margin: 18px 0 0; }
 .lede { font-size: 19px; color: var(--ink2); }
 .page p, .page li { color: var(--ink2); }
+.page .src { font-size: 14px; line-height: 1.5; color: var(--muted); margin: -4px 0 16px; }
+.page .src a { color: var(--muted); }
 .box { background: var(--sky); border-left: 5px solid var(--blue); border-radius: 0 14px 14px 0; padding: 16px 20px; margin: 20px 0; font-size: 15.5px; }
 .box p:last-child { margin-bottom: 0; }
 .explainer { background: var(--sky); border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 15.5px; }
@@ -74,6 +76,16 @@ main { padding: 8px 0 64px; }
 .jump a { display: inline-block; padding: 6px 0; }
 .links { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 15.5px; }
 .links a { display: inline-block; padding: 6px 0; }
+/* phones: tighter type and spacing above the list, so the first row is about a screen down, not one and a half (QA6-SITE-05) */
+@media (max-width: 640px) {
+  .crumbs { margin-top: 14px; }
+  .kicker { margin-top: 10px; }
+  h1 { margin-bottom: 12px; }
+  .lede { font-size: 17px; line-height: 1.5; margin-bottom: 12px; }
+  .page .src { margin: 0 0 12px; }
+  .explainer { font-size: 14.5px; line-height: 1.5; padding: 12px 14px; margin: 14px 0; }
+  h2 { margin-top: 28px; }
+}
 
 /* grade chips (the site's palette) */
 .g { display: inline-grid; place-items: center; flex: 0 0 auto; width: 26px; height: 26px; border-radius: 6px; font-family: var(--display); font-stretch: condensed; font-weight: 900; font-size: 17px; line-height: 1; color: #fff; }
