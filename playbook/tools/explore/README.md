@@ -55,7 +55,8 @@ repo is expected next to this one (`CHI_EATS=/path` otherwise). Chrome runs head
    rest of Illinois can't load; Nick's "vito" and "hewn" reports of 2026-10-09 are cases here, with their words searched
    on both sides in `queries.tsv`; with an exact match on the other side, "No results in <area>" and no "Check the
    spelling" line), a crafted link's bidi override (it stays inside `<bdi>` in the heading and the link, and out of the
-   tab title), a search typed into the box, place pages (a newer City result and its labels, aka shown as
+   tab title), a Rest of Illinois link opened while that file is held back (the header already has its final shape, so
+   the list doesn't jump down when the data lands), a search typed into the box, place pages (a newer City result and its labels, aka shown as
    "A · B", hidden alt names absent from the page, a rest-of-Illinois place, an id that isn't in the data), the Failed
    latest and Lowest scores boards (rows, counts, explainer, result lines), the home grid's counts, and the map (dots
    drawn, the legend's count, a focused place's card on screen above the phone's tab bar, the Illinois map). On every

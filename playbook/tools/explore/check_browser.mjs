@@ -460,6 +460,39 @@ async function checkAlsoFailed(label) {
   check(extra.length > 0, `${label} the blocked Illinois file was noticed (a warning in the console)`, "a warning", extra);
 }
 
+/** A Rest of Illinois link opened fresh: while that file is held back, the header already has the shape it will have (a
+ *  count placeholder, the Filters button, the caption), so the list doesn't jump down when the data lands (SEO8-07). */
+async function checkIllinoisLoading(label) {
+  const held = [];
+  const onPause = (m) => { if (m.sessionId === S && m.method === "Fetch.requestPaused") held.push(m.params.requestId); };
+  listeners.push(onPause);
+  await page("Fetch.enable", { patterns: [{ urlPattern: "*/data/v1/illinois-*", requestStage: "Request" }] });
+  await page("Page.navigate", { url: "about:blank" });
+  await sleep(100);
+  await page("Page.navigate", { url: hashURL(searchHref("pizza", "illinois")) });
+  const SHAPE = `(() => { const r = (s) => document.querySelector(s).getBoundingClientRect();
+    return { body: Math.round(r("#sbody").top), count: document.querySelector("#scount").textContent, filters: !!document.querySelector("#sfbtn button"),
+      cap: document.querySelector("#scap").hidden ? null : document.querySelector("#scap").textContent }; })()`;
+  if (await waitFor(`document.readyState === "complete" && !!document.querySelector("#sbody .spin") && !document.querySelector("#view .loading")`, "Rest of Illinois held back", 20000)) {
+    const during = await js(SHAPE);
+    for (const id of held.splice(0)) await page("Fetch.continueRequest", { requestId: id }).catch(() => {});
+    await page("Fetch.disable");
+    if (await waitFor(`!document.querySelector("#sbody .spin") && !!document.querySelector("#sbody ol.rlist")`, "Rest of Illinois results", 30000)) {
+      const after = await js(SHAPE);
+      const cap = "No grades outside Chicago: the City inspects only Chicago restaurants.";
+      // (the Filters button is in the page at both widths; a wide screen hides that one, its filters sit beside the list)
+      check(during.count === "Loading…" && during.filters && during.cap === cap, `${label} Rest of Illinois loading: a count placeholder, the Filters button, the caption`,
+        { count: "Loading…", filters: true, cap }, during);
+      check(after.body === during.body, `${label} Rest of Illinois loading: the list starts where the loading line was (no jump when the data lands)`, during.body, after.body);
+    }
+  }
+  for (const id of held.splice(0)) await page("Fetch.continueRequest", { requestId: id }).catch(() => {});
+  await page("Fetch.disable").catch(() => {});
+  listeners.splice(listeners.indexOf(onPause), 1);
+  await page("Page.navigate", { url: "about:blank" });
+  await sleep(100);
+}
+
 async function checkPlace(id, label, extra) {
   const p = byId.get(id);
   await go(`#/place/${encodeURIComponent(id)}`);
@@ -635,6 +668,7 @@ try {
     await checkMap(v.label, v.mobile);
     await typing(v.label);
     await checkAlsoFailed(v.label);
+    await checkIllinoisLoading(v.label);
   }
   where = "all pages";
   const foreign = [...new Set(requests.filter((u) => !u.startsWith(ORIGIN + "/") && !u.startsWith("data:") && u !== "about:blank"))];

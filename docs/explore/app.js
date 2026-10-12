@@ -394,7 +394,9 @@ function renderLoading(view) {
     $("#retry").onclick = async () => { state.error = null; render(); await loadChicago(); render(); };
     return;
   }
-  view.innerHTML = `<section class="view loading" aria-live="polite"><p class="display">Chicago<br>Restaurants: Ranked</p>
+  // the lettering is the home page's hero mark at its own size and line breaks: the hero drawn after the data arrives is then
+  // no larger, so it isn't a new, late Largest Contentful Paint (SEO8-06)
+  view.innerHTML = `<section class="view loading" aria-live="polite"><p class="display mark" aria-hidden="true">Chicago<br>Restaurants:<br>Ranked</p>
     <div class="bar indet"><i id="pbar"></i></div><p class="cap">Loading Chicago restaurants…</p>
     <p class="cap" id="slow"${state.slow ? "" : " hidden"}>Still loading. The list is about 2 MB, so a slow connection can take a little while.</p></section>`;
 }
@@ -797,7 +799,12 @@ function viewSearch(view, route) {
     $("#snear").innerHTML = near ? `<button class="linkbtn" type="button" data-clear-near>Clear</button>` : "";
     const needIL = scope === "illinois" || near;
     if (needIL && !state.il) {
-      setCount(""); $("#sfbtn").innerHTML = ""; $("#scap").hidden = true;
+      // while it loads, the header keeps the shape it will have, so the list doesn't jump down when the data lands (SEO8-07):
+      // a placeholder count (hidden from screen readers; the loading line below is the one they hear), the Filters button and,
+      // for Rest of Illinois, its caption, which never changes (no place there has a grade)
+      const loading = !state.ilError, ilCap = loading && !near && scope === "illinois";
+      setCount(loading ? `<span aria-hidden="true">Loading…</span>` : ""); $("#sfbtn").innerHTML = loading ? filterButton(f, state.filtersOpen) : "";
+      $("#scap").hidden = !ilCap; $("#scap").textContent = ilCap ? "No grades outside Chicago: the City inspects only Chicago restaurants." : "";
       $("#sbody").innerHTML = state.ilError ? ilErrorHTML() : ilLoadingHTML();
       // once it's in (or has failed), draw again; a failure stays put until Try again, so this never loops
       if (!state.ilError) afterIllinois(() => { ctx = read(parseHash()); draw(); });
