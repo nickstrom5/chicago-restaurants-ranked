@@ -161,9 +161,10 @@ Rules for anyone editing `docs/`.
     facility types (Grocery Store, Shared Kitchen) and aren't in the data, so say "nearly every"; `verify.py` (every
     sitemap page) and `chi-eats/ios/scripts/listing-copy.py` (the App Store text) fail on "every Chicago restaurant".
   - Not "every restaurant has a grade". About 98% do (7,652 of 7,820 on the September 21, 2026 data), so the lede says "nearly every". The
-    `og.png` now says "Our health grades for nearly every Chicago restaurant" (re-rendered in the cross-check). The
-    same string must be changed on the `pitch` line of `chi-eats/ios/scripts/make-brand.swift`, or re-running that
-    script puts "every" back.
+    `og.png` share image claims no coverage at all: its pitch line is "Chicago restaurants, graded A–F and mapped" and
+    its subline "Free for iPhone & iPad · No ads · No account" (the `pitch` and `sub` lines of
+    `chi-eats/ios/scripts/make-brand.swift`, 384-386; §5 "Before launch: og.png"). Change words there, not only in the
+    image, or re-running that script puts the old ones back.
   - No star ratings, reviews or price levels, anywhere. The app doesn't carry them.
 - **Footer disclaimer.** Every page's footer carries the City of Chicago data disclaimer **word for word** (the City's
   Data Terms of Use require it wherever an app built on its data can be downloaded) and the independence line. Never
@@ -232,6 +233,15 @@ Explore workflow) failed these on 2026-09-28 and passes them as of 2026-10-05.
 `404.html`) resolves against `SITE_ROOT`, so docs/ served under a path prefix checks the same way. `shoot.py` still
 defaults to the old `/chicago-restaurants-ranked/` path, hence its `SITE_ROOT`.
 
+**Dates are the push day (checklist).** Before every push of page edits: each visible "Updated"/"Effective" date, Article
+`dateModified` and sitemap `lastmod` you changed is the day of the push (§3); if the push slips to a later day, change them
+first. Nothing maintains `explore/`'s `lastmod`: bump it by hand when `explore/` changes (its HTML, `app.js`, `logic.js`
+or `app.css`). A date check can't be automated here: `publish_data.py` runs `verify.py` on a staged copy that isn't a git
+work tree, and a commit date isn't the day it went live (the 7 October policy words went live on 8 October).
+
+`verify.py` also accepts links into the web version's routes (`explore/#/map`, `#/search?…`) from any page, checking only
+that the route is one `app.js` knows.
+
 `support.html` questions are `<h2>` tags directly followed by one `<p>`, which is how `verify.py` matches the FAQ. To link
 to one, put the `id` on a span inside it, as `<h2><span id="report">…</span></h2>` does (`privacy.html` and `terms.html`
 link to `support.html#report`).
@@ -271,6 +281,18 @@ each submission, check again that the pages and the manifest return 200.
 
 The hub link: https://eatsranked.com/ is live over HTTPS (checked 2026-09-28: 200 from GitHub Pages, "Eats Ranked:
 Restaurant Grades & Rankings, State by State"), so every footer's "More states at eatsranked.com" works.
+
+### Before launch: og.png (kept as is on 2026-10-12, pending Nick's call)
+
+`og.png`, the share image on every Chicago page (the web version and the data pages included), reads "Free for iPhone &
+iPad · No ads · No account" under "Chicago restaurants, graded A–F and mapped", though the app can't be installed yet
+(SEO8-04). It stays until launch unless Nick decides otherwise (the lowest-risk choice): the 7 root pages' `og:image:alt` / `twitter:image:alt` ("Free for iPhone and iPad, no
+ads, no account.") and the home hero's kicker (`index.html`, "Free for iPhone and iPad", above the "Coming soon to the App
+Store" badge) say the same, and only the home page's `<head>` title and description say "coming soon". If Nick wants it
+changed before launch, change all of these together: the `sub` line of `chi-eats/ios/scripts/make-brand.swift` (386),
+those alt texts, and the hero kicker; then add a step below to restore them. `make-brand.swift` also writes the app's
+`AppIcon-1024.png` and `HotDog.png`, and iOS changes are parked, so render to a temporary docs folder (its docs
+argument), copy only `og.png` into `docs/`, and check `git -C chi-eats status -- ios` is clean.
 
 ### After Apple approves
 

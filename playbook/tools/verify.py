@@ -207,7 +207,11 @@ for page in PAGES:
                 st3, b3 = get(full.split("#")[0])
                 if st3 != 200: bad(page, "broken internal", v, st3)
                 frag = u.fragment
-                if frag and full.split("#")[0].rstrip("/") == url.rstrip("/").replace("index.html",""):
+                if frag.startswith("/") and full.split("#")[0] == ROOT + WEB_APP:
+                    # a route in the web version (explore/#/map, #/search?q=…), not an anchor: one of the routes app.js knows
+                    if frag[1:].split("?")[0].split("/")[0] not in ("", "map", "search", "board", "place", "saved", "about"):
+                        bad(page, "links an unknown web-version route", v)
+                elif frag and full.split("#")[0].rstrip("/") == url.rstrip("/").replace("index.html",""):
                     if f'id="{frag}"' not in src: bad(page, "missing anchor", frag)
                 elif frag:
                     if f'id="{frag}"'.encode() not in b3: bad(page, "missing anchor on target", v)
