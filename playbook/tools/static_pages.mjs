@@ -15,9 +15,13 @@
 //
 // The generator owns docs/lists/, docs/neighborhoods/ and docs/cuisines/ entirely: it writes every page there, deletes
 // anything else in them (a neighborhood or cuisine that leaves the data loses its page), and rewrites only its own
-// entries in sitemap.xml (lastmod = the data's records_through), keeping the rest as they are. A page for an area or cuisine
-// with fewer than THIN graded places is still written, with robots noindex,follow, and left out of the sitemap.
-// Deterministic: the same data and logic write the same bytes, so a second run changes nothing.
+// entries in sitemap.xml, keeping the rest as they are. Their lastmod is the day the data went live: the manifest's
+// "published" time as a Chicago calendar day (update_counts.py stamps the root pages with the Chicago day too), never the
+// records date, which is about a week earlier than the day the pages change. The pages' text keeps the records date ("City
+// records through"). A page for an area or cuisine with fewer than THIN graded places is still written, with robots
+// noindex,follow, and left out of the sitemap.
+// Deterministic: the same data and logic write the same bytes, so a second run changes nothing (a rerun of the publish with
+// the same files keeps the manifest's "published").
 //
 // The weekly publish (chi-eats/pipeline/publish_data.py) runs it on its staging copy of docs/ after update_counts.py and
 // before verify.py, which checks these pages too. By hand:
@@ -75,7 +79,19 @@ function loadData() {
   if (f.rows != null && chi.rows !== f.rows) fail(`${f.path}: ${chi.rows} rows, the manifest says ${f.rows}`);
   if (m.records_through && chi.recordsThrough !== m.records_through) fail(`${f.path}: records through ${chi.recordsThrough}, the manifest says ${m.records_through}`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(chi.recordsThrough)) fail(`records_through ${chi.recordsThrough} isn't a date`);
-  return { manifest: m, chi, data: L.combine(chi, null) };
+  const day = chicagoDay(m.published);
+  if (!day) fail(`manifest.json: published ${JSON.stringify(m.published)} isn't a UTC time like 2026-10-12T11:42:36Z`);
+  if (day < chi.recordsThrough) fail(`manifest.json: published ${m.published} is before the records date ${chi.recordsThrough}`);
+  return { manifest: m, chi, data: L.combine(chi, null), published: day };
+}
+/** The America/Chicago calendar day (YYYY-MM-DD) of a UTC time as publish_data.py writes it, or null. */
+function chicagoDay(iso) {
+  if (typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(iso)) return null;
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== iso.slice(0, 10)) return null;
+  const part = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(t).map((x) => [x.type, x.value]));
+  return `${part.year}-${part.month}-${part.day}`;
 }
 
 // ------------------------------------------------------------------------------------------------ small helpers
@@ -422,7 +438,7 @@ ${boards.map((b) => `      <li><a href="${up}lists/${b.slug}/"><b>${esc(b.title)
 
 // ------------------------------------------------------------------------------------------------ sitemap
 const OWNED_LOC = new RegExp(`^${BASE.replace(/[.]/g, "\\.")}(?:${OWNED.join("|")})/`);
-function sitemapWith(src, pages, rt) {
+function sitemapWith(src, pages, lastmod) {
   const blocks = [...src.matchAll(/<url>[\s\S]*?<\/url>/g)].map((m) => m[0]);
   const start = src.indexOf("<url>"), end = src.lastIndexOf("</urlset>");
   if (end < 0) fail("sitemap.xml has no </urlset>");
@@ -431,7 +447,7 @@ function sitemapWith(src, pages, rt) {
   // lists/ then neighborhoods/ then cuisines/, each index before its pages
   const order = (p) => [OWNED.indexOf(p.path.split("/")[0]), p.path.split("/").filter(Boolean).length];
   const ours = pages.filter((p) => p.index).map((p, i) => [order(p), i, p]).sort((a, b) => a[0][0] - b[0][0] || a[0][1] - b[0][1] || a[1] - b[1])
-    .map(([, , p]) => `<url><loc>${BASE}${p.path}</loc><lastmod>${rt}</lastmod></url>`);
+    .map(([, , p]) => `<url><loc>${BASE}${p.path}</loc><lastmod>${lastmod}</lastmod></url>`);
   return head.replace(/[ \t]*$/, "") + [...keep, ...ours].map((b) => `  ${b}\n`).join("") + "</urlset>\n";
 }
 
@@ -473,10 +489,10 @@ for (const dir of OWNED) {
 }
 const smPath = join(DOCS, "sitemap.xml");
 if (!existsSync(smPath)) fail("docs/sitemap.xml is missing");
-writeIfChanged(smPath, sitemapWith(readFileSync(smPath, "utf8"), pages, rt), changes);
+writeIfChanged(smPath, sitemapWith(readFileSync(smPath, "utf8"), pages, loaded.published), changes);
 
 const thin = pages.filter((p) => !p.index);
-console.log(`static_pages: ${DOCS} <- manifest ${loaded.manifest.version} (records through ${rt})`);
+console.log(`static_pages: ${DOCS} <- manifest ${loaded.manifest.version} (records through ${rt}; published ${loaded.published}, the sitemap lastmod)`);
 console.log(`  ${pages.length} pages: ${boards.length + 1} rankings, ${areas.length + 1} neighborhoods, ${cuisines.length + 1} cuisines; `
   + `${pages.length - thin.length} in the sitemap, ${thin.length} noindex (fewer than ${THIN} graded places: ${thin.map((p) => p.path).join(", ") || "none"})`);
 for (const c of changes.slice(0, 30)) console.log("  " + c);

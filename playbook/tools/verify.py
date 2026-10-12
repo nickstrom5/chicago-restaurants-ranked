@@ -11,8 +11,10 @@ block. Also /.well-known/security.txt (unexpired) and /favicon.ico.
 The data pages (lists/, neighborhoods/, cuisines/; playbook/tools/static_pages.mjs writes them from data/v1) get data_pages():
 the site-wide checks, every place they link in the published data, the intro's counts and each row's grade and latest
 result against that data, the area and cuisine order, noindex exactly when fewer than 20 places have a grade, and the
-sitemap, the index pages' links and the folders on disk (DOCS, default docs/ beside playbook/) naming the same pages."""
+sitemap, the index pages' links and the folders on disk (DOCS, default docs/ beside playbook/) naming the same pages, with
+each data page's sitemap lastmod the day the data went live (the manifest's "published", as a Chicago day)."""
 import json, re, sys, urllib.request, urllib.error, html, hashlib, datetime as dt
+from zoneinfo import ZoneInfo
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, unquote
 import os
@@ -225,6 +227,13 @@ for page in PAGES:
 GEN = ("lists/", "neighborhoods/", "cuisines/")
 DOCS = os.environ.get("DOCS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs")
 THIN, ROWS = 20, 100                 # static_pages.mjs: noindex under THIN graded places; at most ROWS rows a page
+CHICAGO = ZoneInfo("America/Chicago")
+def chicago_day(stamp):
+    """The America/Chicago calendar day (YYYY-MM-DD) of the manifest's "published" UTC time, or None: the day the data went
+    live, which static_pages.mjs writes as the data pages' sitemap lastmod (update_counts.py stamps root pages the same way)."""
+    if not isinstance(stamp, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z", stamp): return None
+    try: return dt.datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(CHICAGO).date().isoformat()
+    except ValueError: return None
 ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 def fmt_date(s):
     """logic.js Fmt.date: "Sep 2, 2026", or "—" for anything that isn't a real yyyy-M-d day."""
@@ -233,17 +242,19 @@ def fmt_date(s):
     except (TypeError, ValueError): return "—"
     return f"{ABBR[d.month - 1]} {d.day}, {d.year}"
 def chicago_places():
-    """(records_through, {id: place}) from data/v1 as the web app reads it (manifest, bytes, sha256, rows; logic.js
+    """(records_through, published day, {id: place}) from data/v1 as the web app reads it (manifest, bytes, sha256, rows; logic.js
     parseChicago's columns: a row needs a string id and name; an index past its list is no value; no cuisine is
     "American & Other"; a newer result only with a date after records_through)."""
     st, mb = get(ROOT + "data/v1/manifest.json")
-    if st != 200: bad("data pages: data/v1/manifest.json", st); return None, {}
+    if st != 200: bad("data pages: data/v1/manifest.json", st); return None, None, {}
     man = json.loads(mb); f = man["files"]["chicago"]
     st, b = get(ROOT + "data/v1/" + f["path"])
     if st != 200 or len(b) != f["bytes"] or hashlib.sha256(b).hexdigest() != f["sha256"]:
-        bad("data pages:", f["path"], "doesn't match the manifest"); return None, {}
+        bad("data pages:", f["path"], "doesn't match the manifest"); return None, None, {}
     j = json.loads(b); c = {k: i for i, k in reversed(list(enumerate(j["cols"])))}; meta = j.get("meta") or {}
     rt = man["records_through"]
+    day = chicago_day(man.get("published"))
+    if day is None or day < rt: bad("data pages: manifest published", repr(man.get("published")), "isn't a UTC time on or after", rt)
     if meta.get("records_through") != rt or len(j["rows"]) != f["rows"]: bad("data pages:", f["path"], "rows or records date not the manifest's")
     def v(r, k): return r[c[k]] if k in c and c[k] < len(r) else None
     def s(r, k): x = v(r, k); return x if isinstance(x, str) and x else None
@@ -260,7 +271,7 @@ def chicago_places():
                            "grade": g if g in ("A", "B", "C", "D", "F") else None, "score": int(sc) if sc is not None else None,
                            "lastDate": s(r, "lastDate"), "lastResult": s(r, "lastResult"),
                            "newerDate": nd if newer else None, "newerResult": nr if newer else None}
-    return rt, out
+    return rt, day, out
 def result_lines(q):
     """logic.js resultLine and newerLine, as each row shows them."""
     label = "Latest in our records" if q["newerResult"] else "City's latest result"
@@ -268,7 +279,7 @@ def result_lines(q):
     if q["newerResult"]: out.append(f"Newer City result: {q['newerResult']}, {fmt_date(q['newerDate'])}")
     return out
 def data_pages():
-    rt, places = chicago_places()
+    rt, published, places = chicago_places()
     if not places: return
     shown = {i: q for i, q in places.items() if not q["venue"]}   # the web version's lists leave non-restaurants out
     by = {"neighborhoods": {}, "cuisines": {}}
@@ -305,7 +316,7 @@ def data_pages():
         if not items or items[-1].get("item") != BASE + page: bad(name, "BreadcrumbList doesn't end at the page"); continue
         label = items[-1]["name"]
         if re.findall(r'<time datetime="([^"]*)"', src) != [rt]: bad(name, "records date isn't", rt)
-        if index and lastmod.get(BASE + page) != rt: bad(name, "sitemap lastmod", lastmod.get(BASE + page), "should be", rt)
+        if index and lastmod.get(BASE + page) != published: bad(name, "sitemap lastmod", lastmod.get(BASE + page), "should be", published, "(the day the data went live)")
         if not index and BASE + page in smurls: bad(name, "noindex but in the sitemap")
         n = {k: int(x.replace(",", "")) for k, x in re.findall(r'<span data-n="(\w+)">([\d,]+)</span>', src)}
         # links: places in the data, our pages found, everything internal answering

@@ -78,8 +78,9 @@ Do these once the site is live.
   Breadcrumb); validator.schema.org for the full graph; paste the home page URL into a link-preview checker
   (opengraph.xyz, or send it to yourself in iMessage) and check `og.png` shows.
 - **Never add `aggregateRating` or review markup.** There are none, and the app deliberately carries no ratings or reviews.
-- Bump `<lastmod>` in `docs/sitemap.xml` (and `dateModified` in that page's Article JSON-LD) whenever a page's content
-  changes, then re-request indexing for it.
+- Bump `<lastmod>` in `docs/sitemap.xml` whenever a page's content changes (the weekly publish does it for the pages whose
+  `data-stat` spans change and for the data pages), then re-request indexing for it. A guide's Article `dateModified` moves
+  only with its visible "Updated" line, when its words change (§3), so the two never disagree.
 
 ## 3. Keep the site honest
 
@@ -106,8 +107,10 @@ Rules for anyone editing `docs/`.
   - **`<head>` carries no exact counts or dates** (title, meta description, og/twitter, JSON-LD). The one data number
     allowed there is the `graded_floor` text ("7,600+"), which `update_counts.py` swaps in `<head>` too; any other
     "N,NNN+" in a `<head>` makes it fail. Today no `<head>` has one. Page edit dates are not data and are not spans:
-    `update_counts.py` sets sitemap `lastmod` and Article `dateModified` to the run date on pages it changes, and the
-    visible "Updated"/"Effective" lines change only when someone edits the words.
+    `update_counts.py` sets sitemap `lastmod` to the run date (the America/Chicago day) on pages it changes, and leaves
+    Article `dateModified` and the visible "Updated"/"Effective" lines alone: those two change together, only when someone
+    edits the words, so a guide's byline date and its structured data always agree. (Until 2026-10-12 the script also moved
+    `dateModified` on span-only runs, which split the two dates every week.)
   - **FAQ answers carry no data numbers or dates.** The visible FAQ must match its `FAQPage` JSON-LD word for word, and
     the JSON-LD (in `<head>`) can't hold a span. Say "thousands of restaurants in hundreds of other Illinois towns", or
     "the app shows the date its City records run through", instead.
@@ -296,9 +299,9 @@ requested directly: `DataUpdater.site` is the domain, so it needs the domain's c
 downloads newer data files when there are any, about once a week. The web version (`explore/`) reads the same files.
 `chi-eats/pipeline/publish_data.py`
 writes everything under `docs/data/v1/` (the manifest, content-addressed `chicago-<sha>.json` / `illinois-<sha>.json`
-files and `NOTICE.txt`), runs `playbook/tools/update_counts.py` to refresh the `data-stat` spans (§3), sitemap
-`lastmod` and Article `dateModified`, then `playbook/tools/static_pages.mjs` (the data pages below), and runs §4 before it
-pushes. It runs weekly from the Claude scheduled task `chicago-restaurants-weekly-data` (Mondays 06:30 America/Chicago)
+files and `NOTICE.txt`), runs `playbook/tools/update_counts.py` to refresh the `data-stat` spans (§3) and the
+sitemap `lastmod` of the pages they changed, then `playbook/tools/static_pages.mjs` (the data pages below), and runs §4
+before it pushes. It runs weekly from the Claude scheduled task `chicago-restaurants-weekly-data` (Mondays 06:30 America/Chicago)
 and publishes nothing if any gate fails.
 
 **The data pages** (`lists/`, `neighborhoods/`, `cuisines/`; SEO-07 phase 1, 2026-10-07). `static_pages.mjs` (Node 22+;
@@ -309,8 +312,12 @@ order and metrics, explainers, and each area or cuisine list in the order the we
 shows at most 100 rows and links to the full list in the web version; every row links to `explore/#/place/<license>`.
 An area or cuisine with fewer than 20 graded places gets a `noindex,follow` page outside the sitemap (9 areas on the
 September 28 data). The script owns those three folders: it rewrites every page, deletes anything else in them (an area
-that leaves the data loses its page) and rewrites only its own `sitemap.xml` entries, with `lastmod` = the records date.
-It's deterministic: the same data writes the same bytes. `publish_data.py` runs it on the staging copy after
+that leaves the data loses its page) and rewrites only its own `sitemap.xml` entries, with `lastmod` = the day the data
+went live: the manifest's `published` time as an America/Chicago day (`update_counts.py` dates the root pages by the Chicago
+day too). Not the records date, which is about a week before the pages change (that gave no recrawl signal; PUB-5). The
+pages' text keeps the records date ("City records through"). It's deterministic: the same data writes the same bytes, and a
+rerun of the publish with the same files keeps `published`. A hand edit of the script, `docs/pages.css` or `logic.js` that
+changes the pages keeps the last publish day as their `lastmod` until the next publish rewrites them (at most a week). `publish_data.py` runs it on the staging copy after
 `update_counts.py`, so the pages change only with a publish, inside the same all-or-nothing write as the data. By hand
 (after editing it, `docs/pages.css` or `logic.js`; then commit and push like any page edit, §3):
 
@@ -321,7 +328,7 @@ node playbook/tools/static_pages.mjs --check    # exit 1 if anything is out of d
 
 `verify.py` checks every data page: the site-wide checks, every linked place id in the published data, the intro's counts,
 each area and cuisine row's grade and latest City result against the data, best-score-first order, noindex exactly
-below 20 graded places, the records date, and that `sitemap.xml`, the index pages' links and the folders on disk
+below 20 graded places, the records date, each indexed page's sitemap `lastmod` (the publish day), and that `sitemap.xml`, the index pages' links and the folders on disk
 (`DOCS`, default `docs/`; `publish_data.py` passes its staging copy) name the same pages.
 
 **Status 2026-10-05: live.** The first publish went live on 2026-10-05 (manifest version 2026-09-28.1, published

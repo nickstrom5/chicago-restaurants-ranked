@@ -11,7 +11,9 @@ there is the graded_floor text, and this script swaps the previous one for the n
 else the one --old-manifest's counts give, else the page's own graded_floor spans as they were before this run.
 The run fails, writing nothing, when a number would go stale anyway: any other "N,NNN+" left in <head>, or a key's old
 value still in the page outside its span (a number nobody marked). Also on an unknown KEY or markup inside a span.
-A page that changed gets today's date in its sitemap.xml <lastmod> and in its Article JSON-LD dateModified (runbook §2).
+A page that changed gets today's date (the America/Chicago day, as static_pages.mjs dates the data pages) in its
+sitemap.xml <lastmod>. Its Article JSON-LD dateModified and its visible "Updated" line stay: a span is data, not new words,
+and both change only when someone edits the words (runbook §3, "Visible page dates are the push date").
 Idempotent: a second run with the same manifest changes nothing.
 
   python3 playbook/tools/update_counts.py                        # docs/ beside playbook/
@@ -21,12 +23,17 @@ Idempotent: a second run with the same manifest changes nothing.
 """
 import os, re, sys, json, glob, argparse, datetime as dt
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfo
 
 DOCS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs")
 KEYS = ("places", "restaurants", "graded", "graded_floor", "illinois", "towns", "records_through")
 SPAN = re.compile(r'(<span\b[^>]*\bdata-stat="([^"]*)"[^>]*>)(.*?)(</span>)', re.S)
 FLOOR = re.compile(r"(?<![\d,])\d{1,3}(?:,\d{3})+\+")
-DATE_MODIFIED = re.compile(r'("dateModified"\s*:\s*")(\d{4}-\d{2}-\d{2})(")')
+CHICAGO = ZoneInfo("America/Chicago")   # the site's day, as static_pages.mjs dates the data pages (a run after 19:00 CDT is still today)
+
+
+def chicago_today():
+    return dt.datetime.now(CHICAGO).date()
 
 
 def floor(graded):
@@ -119,7 +126,7 @@ def bump_sitemap(sitemap, pages, today):
 
 def run(docs, manifest, old_floors=(), old_values=None, today=None, write=True, log=print):
     """Returns (changed page names, errors). Writes only when write and there are no errors."""
-    today = (today or dt.date.today()).isoformat()
+    today = (today or chicago_today()).isoformat()
     new = values(manifest)
     errors, out, report = [], {}, []
     pages = sorted(glob.glob(os.path.join(docs, "*.html")))
@@ -137,7 +144,6 @@ def run(docs, manifest, old_floors=(), old_values=None, today=None, write=True, 
     for name, (path, src, new_src, changes, head_n, _) in parsed.items():
         stale_outside_spans(name, new_src, olds, new, errors)
         if new_src != src:
-            new_src = DATE_MODIFIED.sub(lambda m: m.group(1) + today + m.group(3), new_src)
             out[name] = (path, new_src)
             parts = [f"{k} {' / '.join(sorted(o))} -> {n} ({c})" for k, (o, n, c) in sorted(changes.items())]
             if head_n:
@@ -171,7 +177,7 @@ def main():
     ap.add_argument("--manifest", help="default: DOCS/data/v1/manifest.json")
     ap.add_argument("--old-manifest", help="the previously published manifest (its values are the ones being replaced)")
     ap.add_argument("--old-floor", action="append", default=[], help='the graded_floor text now in <head>, e.g. "7,600+"')
-    ap.add_argument("--today", help="YYYY-MM-DD for lastmod / dateModified (default: today)")
+    ap.add_argument("--today", help="YYYY-MM-DD for sitemap lastmod (default: today in America/Chicago)")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--check", action="store_true", help="exit 1 if any page is out of date; write nothing")
     g.add_argument("--dry-run", action="store_true", help="print the changes; write nothing")
