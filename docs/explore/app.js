@@ -23,7 +23,15 @@ const Q_MAX = 120;            // search runs on the main thread, so a long paste
 const capQ = (s) => { const a = Array.from(s || ""); return a.length > Q_MAX ? a.slice(0, Q_MAX).join("") : s || ""; };
 const phone = matchMedia("(max-width: 719px)"), wide = matchMedia("(min-width: 1100px)");
 const placeHref = (p) => `#/place/${encodeURIComponent(p.id)}`;
-const gradeChip = (g, cls = "") => `<span class="g g${g}${cls ? " " + cls : ""}"><span class="sr">Grade </span>${g}</span>`;
+// a screen reader hears "our grade A", as in the app (build 3), not a bare "Grade A" that could pass for the City's
+const gradeChip = (g, cls = "") => `<span class="g g${g}${cls ? " " + cls : ""}"><span class="sr">Our grade </span>${g}</span>`;
+/** The words searched, shown back on the page: in <bdi>, so a bidi control in them (a crafted link's U+202E) can't flip the
+ *  text around them. esc() already keeps out markup. */
+const bdi = (text) => `<bdi>${esc(text)}</bdi>`;
+/** The same words in the tab title, which can't hold <bdi>: without the bidi controls (embeddings, overrides, isolates and
+ *  marks), so the rest of the title reads the right way round. Display only: the search itself keeps them (logic.js reads
+ *  them as word breaks). */
+const titleText = (text) => text.replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
 const GRADE_FILL = { A: "#12733A", B: "#4B7A1B", C: "#F2B01E", D: "#E8804F", F: "#C1302F" };
 const GRADE_TEXT = { A: "#fff", B: "#fff", C: "#2B1D00", D: "#2B1000", F: "#fff" };
 const MUTED = "#52638A", BLUE = "#0E3386";
@@ -394,7 +402,10 @@ function renderLoading(view) {
 // ------------------------------------------------------------------------------------------------ shared pieces
 function badgesHTML(p, hideMichelin = false) {
   const b = L.badges(p, hideMichelin);
-  return b.length ? `<span class="badges">${b.map(([t, k]) => `<span class="badge ${k}">${esc(t)}</span>`).join("")}</span>` : "";
+  // the chain badge reads "Chain · 35"; a screen reader also hears what 35 counts, as in the app ("Chain, 35 locations"):
+  // the place page's "Locations in Chicago" (or "in Illinois" for a place in the rest of Illinois)
+  const counts = (t) => (p.isChain && t === `Chain · ${p.chain}` ? `<span class="sr"> locations in ${p.isChicago ? "Chicago" : "Illinois"}</span>` : "");
+  return b.length ? `<span class="badges">${b.map(([t, k]) => `<span class="badge ${k}">${esc(t)}${counts(t)}</span>`).join("")}</span>` : "";
 }
 function rankRow(p, i, board) {
   const m = L.metric(board, p, D().recordsYear);
@@ -453,11 +464,12 @@ function alsoHTML(o, q, zero) {
   const area = AREA[o.other], text = q.trim();
   const graded = o.rows.some((p) => p.grade != null);
   const cap = o.other === "illinois" ? "No grades outside Chicago: the City inspects only Chicago restaurants." : graded ? GRADES_CAPTION : "";
-  const link = o.total > 1 ? `See all ${n(o.total)} in ${area}` : `Search ${area} for “${esc(text)}”`;
+  const link = o.total > 1 ? `See all ${n(o.total)} in ${area}` : `Search ${area} for “${bdi(text)}”`;
   return `<div class="also" data-area="${o.other}"><h2 id="also-h">${zero ? "In" : "Also in"} ${area}</h2>`
     + `<ol role="list" class="rlist also-list" aria-labelledby="also-h">${o.rows.map((p) => searchRow(p, null, "", false, area)).join("")}</ol>`
     + (cap ? `<p class="cap">${cap}</p>` : "")
-    + `<div class="row"><a class="btn small" href="${searchHash({ q, scope: o.other })}" data-also-link>${link}</a></div></div>`;
+    // one span inside the button (an inline-flex box), so the <bdi> doesn't become a flex item with gaps around it
+    + `<div class="row"><a class="btn small" href="${searchHash({ q, scope: o.other })}" data-also-link><span>${link}</span></a></div></div>`;
 }
 /** What a Search with no exact match says about the other side, in its panel: nothing there either, or that it's looking. */
 function alsoLine(o) {
@@ -585,7 +597,7 @@ function focusFilters(root) { const h = root.querySelector(".colside .fpanel h2"
 // ------------------------------------------------------------------------------------------------ home (HomeView.swift)
 function viewHome(view, route) {
   const d = D();
-  document.title = "Search Chicago Restaurant Grades, Map & Rankings | Chi Ranked";
+  document.title = "Chicago Restaurant Grades, Map & Rankings | Chi Ranked";
   const ilN = illinoisCount(), towns = townCount();
   const cards = L.HOME_CARDS.map((c) => {
     let count = null, href = "#/", sub = c.sub;
@@ -775,7 +787,7 @@ function viewSearch(view, route) {
     // a redraw keeps focus on the same row or button, and in the Near me panel while it changes (Try again, Finding you…, the result)
     const act = document.activeElement, keep = act && root.contains(act) && $("#sbody").contains(act) ? act.getAttribute("href") : null;
     const keepLoc = !!(act && $("#sbody").contains(act) && act.closest("[data-loc]"));
-    document.title = near ? "Restaurants near me | Chi Ranked" : text ? `“${text}” · Search ${scope === "chicago" ? "Chicago" : "the rest of Illinois"} | Chi Ranked` : "Search | Chi Ranked";
+    document.title = near ? "Restaurants near me | Chi Ranked" : text ? `“${titleText(text)}” · Search ${scope === "chicago" ? "Chicago" : "the rest of Illinois"} | Chi Ranked` : "Search | Chi Ranked";
     $("#skick").textContent = near ? "Chicago and the rest of Illinois" : scope === "chicago" ? "Chicago" : "Rest of Illinois";
     $("#stitle").textContent = near ? "Near me" : text ? "Search" : scope === "chicago" ? "Search Chicago restaurants" : "Search the rest of Illinois";
     // rebuilt when the area changes, and once the rest of Illinois is in (its towns and cuisines join the lists)
@@ -849,8 +861,11 @@ function viewSearch(view, route) {
         <div class="row"><a class="btn small" href="${boardHash("cleanest", L.newFilters())}">Cleanest Kitchens</a><a class="btn small" href="${searchHash({})}">Search Chicago</a></div></div>`;
     } else if (!places.length && !closest.length && listed) {
       const row = (L.activeCount(f) ? `<button class="btn" type="button" data-clear-filters>Clear filters</button>` : "")
-        + (otherButton ? `<a class="btn" href="${searchHash({ q, scope: other })}">Search ${AREA[other]} for “${esc(text)}”</a>` : "");
-      html += `<div class="empty">${icon("search")}<h2>${text ? `No results for “${esc(text)}”` : "Nothing matches"}</h2><p>${L.activeCount(f) ? "Your filters may be hiding places." : "Check the spelling or try a new search."}</p>`
+        + (otherButton ? `<a class="btn" href="${searchHash({ q, scope: other })}"><span>Search ${AREA[other]} for “${bdi(text)}”</span></a>` : "");
+      // the other side has exact matches, right below: say which area has none, and don't suggest the spelling is wrong
+      const elsewhere = !!(also && also.state === "shown");
+      const hint = L.activeCount(f) ? "Your filters may be hiding places." : elsewhere ? "" : "Check the spelling or try a new search.";
+      html += `<div class="empty">${icon("search")}<h2>${text ? `No results${elsewhere ? ` in ${AREA[scope]}` : ""} for “${bdi(text)}”` : "Nothing matches"}</h2>${hint ? `<p>${hint}</p>` : ""}`
         + (row ? `<div class="row">${row}</div>` : "") + (also ? alsoLine(also) : "") + `</div>`;
       if (also && also.state === "shown") html += alsoHTML(also, q, true);
     }
@@ -868,7 +883,7 @@ function viewSearch(view, route) {
       if (also && also.state === "shown") html += alsoHTML(also, q, true);
       const row = (L.activeCount(f) ? `<button class="btn small" type="button" data-clear-filters>Clear filters</button>` : "")
         + (otherButton ? `<a class="btn small" href="${searchHash({ q, scope: other })}">Search ${AREA[other]}</a>` : "");
-      html += `<div class="closest-head"><h2>No exact match for “${esc(text)}”</h2>`
+      html += `<div class="closest-head"><h2>No exact match for “${bdi(text)}”</h2>`
         + `<p>${L.activeCount(f) ? "These places match only some of your words, or spell them differently. Your filters may be hiding others."
           : "These places match only some of your words, or spell them differently. Check the name and address."}</p>`
         + (row ? `<div class="row">${row}</div>` : "") + (also ? alsoLine(also) : "")

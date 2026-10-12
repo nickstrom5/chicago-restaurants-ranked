@@ -191,7 +191,7 @@ function alsoWant(s) {
   const rows = o.shown.slice(0, 3).map((id) => byId.get(id));
   return { state: "shown", h2: `${zero ? "In" : "Also in"} ${AREA[other]}`, ids: rows.map((p) => p.id), none: null,
     subs: rows.map((p) => [p.isChicago ? p.hood : p.city, p.cuisine].filter((x) => x != null).join(" · ") + ` · in ${AREA[other]}`),
-    grades: rows.map((p) => (p.grade ? `Grade ${p.grade}` : null)),
+    grades: rows.map((p) => (p.grade ? `Our grade ${p.grade}` : null)),
     cap: other === "illinois" ? "No grades outside Chicago: the City inspects only Chicago restaurants." : rows.some((p) => p.grade) ? GRADES_CAPTION : null,
     link: { text: o.total > 1 ? `See all ${o.total.toLocaleString("en-US")} in ${AREA[other]}` : `Search ${AREA[other]} for “${s.text.trim()}”`, href: searchHref(s.text, other) } };
 }
@@ -248,6 +248,7 @@ async function checkSearch(s, label) {
       head: head ? { h2: head.querySelector("h2").textContent, p: head.querySelector("p").textContent, h3: head.querySelector("h3") && head.querySelector("h3").textContent,
         links: [...head.querySelectorAll("a, button")].map((x) => x.textContent.trim()) } : null,
       empty: document.querySelector("#sbody .empty h2") ? document.querySelector("#sbody .empty h2").textContent : null,
+      hint: document.querySelector("#sbody .empty > p") ? document.querySelector("#sbody .empty > p").textContent : null,
       cap: document.querySelector("#scap").hidden ? null : document.querySelector("#scap").textContent };
   })()`);
   const what = `${label} ${s.scope} “${s.text}”${anyFilter(s.filters) ? " (filtered)" : ""}`;
@@ -271,7 +272,12 @@ async function checkSearch(s, label) {
     const graded = s.closest.some((id) => byId.get(id)?.grade);
     if (graded) check(got.cap === "Our grades from City inspection records, not official City grades.", `${what}: grades caption`, "Our grades…", got.cap);
   } else if (s.total === 0) {
-    check(got.head === null && got.empty === `No results for “${s.text.trim()}”`, `${what}: "No results" panel`, `No results for “${s.text.trim()}”`, got.empty);
+    // with exact matches on the other side (shown right below), the heading names this area and doesn't suggest a misspelling
+    const other = alsoWant(s), t = s.text.trim(), filtered = anyFilter(s.filters);
+    const heads = other ? [other.state === "shown" ? `No results in ${AREA[s.scope]} for “${t}”` : `No results for “${t}”`] : [`No results for “${t}”`, `No results in ${AREA[s.scope]} for “${t}”`];
+    check(got.head === null && heads.includes(got.empty), `${what}: "No results" panel`, heads, got.empty);
+    const hint = filtered ? "Your filters may be hiding places." : got.empty === `No results for “${t}”` ? "Check the spelling or try a new search." : null;
+    check(got.hint === hint, `${what}: the line under "No results"`, hint, got.hint);
   }
   // the other side of the search: against the oracle when it ran the same words there, else only its shape
   const also = await js(ALSO);
@@ -324,8 +330,9 @@ async function checkAlso(label) {
   await go(searchHref("hewn", "chicago"));
   a = await settle("“hewn” on Chicago");
   if (a) {
-    const empty = await js(`document.querySelector("#sbody .empty h2") && document.querySelector("#sbody .empty h2").textContent`);
-    check(empty === "No results for “hewn”", `${label} “hewn” on Chicago: No results here`, "No results for “hewn”", empty);
+    const empty = await js(`(() => { const e = document.querySelector("#sbody .empty"); return e && { h2: e.querySelector("h2").textContent, p: e.querySelector(":scope > p") && e.querySelector(":scope > p").textContent }; })()`);
+    // QA8-FUNC-01: an exact match is right below, so no "Check the spelling", and the heading says where there's none
+    check(same(empty, { h2: "No results in Chicago for “hewn”", p: null }), `${label} “hewn” on Chicago: No results in Chicago, no spelling hint`, { h2: "No results in Chicago for “hewn”", p: null }, empty);
     check(a.h2 === "In Rest of Illinois" && a.ids.includes(hewn.id) && a.subs[a.ids.indexOf(hewn.id)].startsWith("Evanston · "),
       `${label} “hewn” on Chicago: Hewn (Evanston) under In Rest of Illinois`, ["In Rest of Illinois", hewn.id, "Evanston · …"], [a.h2, a.ids, a.subs]);
     check(!a.oldButtons.some((t) => t.startsWith("Search Rest of Illinois")), `${label} “hewn” on Chicago: the bare "Search Rest of Illinois" button is replaced`, [], a.oldButtons);
@@ -373,6 +380,29 @@ async function checkAlso(label) {
     check(chi && !chi.total && chi.closest.length > 0, "the app's Chicago search for “hewn bakery” has only Closest matches (the test needs that)", "closest only", chi && [chi.total, chi.closest.length]);
     const got = { state: a.state, h2: a.h2, ids: a.ids, none: a.none };
     check(same(got, { state: "none", h2: null, ids: [], none: null }), `${label} “hewn bakery” on Rest of Illinois: Chicago's Closest matches never show`, { state: "none" }, got);
+  }
+
+  // a bidi override in the words (a crafted link): every place the page shows them back keeps them in <bdi>, so the text
+  // around them can't be flipped, and the tab title drops them (SEC8-2). The search itself still reads them.
+  {
+    const q = "\u202Ealinea", chi = plainSearch("alinea", "chicago");
+    check(chi && chi.total === 1, "the app's Chicago search for “alinea” finds one place (the bidi test needs that)", 1, chi && chi.total);
+    await go(searchHref(q, "illinois"));
+    a = await settle("a bidi override on Rest of Illinois");
+    if (a) {
+      const got = await js(`(() => { const e = document.querySelector("#sbody .empty h2"), l = document.querySelector("[data-also-link]");
+        const inBdi = (el) => !!el && [...el.querySelectorAll("bdi")].map((b) => b.textContent).join("") === ${JSON.stringify(q)};
+        return { h2: e && e.textContent, h2bdi: inBdi(e), link: l && l.textContent, linkbdi: inBdi(l), title: document.title,
+          stray: /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/.test(document.title) }; })()`);
+      const exp = { h2: `No results in Rest of Illinois for “${q}”`, h2bdi: true, link: `Search Chicago for “${q}”`, linkbdi: true,
+        title: "“alinea” · Search the rest of Illinois | Chi Ranked", stray: false };
+      check(same(got, exp), `${label} a bidi override in the words stays in <bdi> (heading, link) and out of the title`, exp, got);
+    }
+    await go(searchHref(q, "chicago"));
+    if (await waitFor(`!!document.querySelector("#sbody ol.rlist a.rrow")`, "a bidi override on Chicago")) {
+      const t = await js("document.title");
+      check(t === "“alinea” · Search Chicago | Chi Ranked", `${label} the title without the override, with results`, "“alinea” · Search Chicago | Chi Ranked", t);
+    }
   }
 
   // 3. nothing on either side: no preview, a plain line
