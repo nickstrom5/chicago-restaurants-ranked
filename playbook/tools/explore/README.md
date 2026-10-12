@@ -19,7 +19,8 @@ answers, Chrome's profile, screenshots, the full logs `logic.txt`, `browser.txt`
 Needs: macOS with the Xcode command-line tools (`swiftc`), Node 22 or later (it uses Node's built-in WebSocket and
 fetch, nothing to install), `python3`, `curl`, and Google Chrome (`CHROME=/path/to/chrome` for another one). The chi-eats
 repo is expected next to this one (`CHI_EATS=/path` otherwise). Chrome runs headless with its own profile
-(`$EXPLORE_WORK/chrome`), never yours.
+(`$EXPLORE_WORK/chrome`), never yours. The two local servers take any free port; on a machine that hands each session
+its own ports, set `MIRROR_PORT` (the browser step's mirror) and `VERIFY_PORT` (docs/ for verify.py).
 
 ## The steps
 
@@ -59,12 +60,13 @@ repo is expected next to this one (`CHI_EATS=/path` otherwise). Chrome runs head
    the list doesn't jump down when the data lands), a search typed into the box, place pages (a newer City result and its labels, aka shown as
    "A · B", hidden alt names absent from the page, a rest-of-Illinois place, an id that isn't in the data), the Failed
    latest and Lowest scores boards (rows, counts, explainer, result lines), the home grid's counts, and the map (dots
-   drawn, the legend's count, a focused place's card on screen above the phone's tab bar, the Illinois map). On every
+   drawn, the legend's count, a focused place's card on screen above the phone's tab bar, Escape closing that card from
+   its Close button and its Open place link (focus back on the map) and from a zoom button (focus stays), the Illinois map). On every
    page: nothing wider than the screen; overall: no request to anything but the local server, no cookies, no console
    errors. Screenshots of each screen are in `$EXPLORE_WORK/shots/`; look at them after layout changes.
 5. **verify.py** (`playbook/tools/verify.py`) with `docs/` served at the root (`SITE_ROOT=http://127.0.0.1:<port>/`),
    as the runbook does before a push. `explore/` gets its site-wide checks (canonical, og:url, images and JSON-LD on
-   https://chicago.eatsranked.com/, the eatsranked.com footer link, no old address, no "every Chicago restaurant").
+   https://chicago.eatsranked.com/, the footer's "Part of Eats Ranked" line, no old address, no "every Chicago restaurant").
    It must end `PROBLEMS: 0`.
 6. **Mutants** (`mutate.mjs`, with `--mutants`). Plants 23 small bugs one at a time in a copy of the web app (a stem
    rule off by one, Closest matches' limits and weights, alt names dropped, the 90-day window, a reworded row note, a row

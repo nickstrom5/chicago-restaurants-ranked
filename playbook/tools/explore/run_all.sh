@@ -6,6 +6,8 @@
 #   EXPLORE_WORK  where the mirror, oracle, Chrome profile and screenshots go (default: $TMPDIR/chiranked-explore-tests)
 #   CHI_EATS      the chi-eats repo (default: next to this repo)
 #   CHROME        Chrome's binary (default: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome)
+#   VERIFY_PORT   the port docs/ is served on for verify.py (default: any free one)
+#   MIRROR_PORT   the port check_browser.mjs serves the mirror on (default: any free one)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SITE="$(cd "$HERE/../../.." && pwd)"
@@ -65,7 +67,7 @@ if node "$SITE/playbook/tools/static_pages.mjs" --docs "$SITE/docs" --check > "$
 else
   record "data pages (static_pages --check)" "FAIL (see $WORK/static_pages.txt)"
 fi
-PORT=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+PORT=${VERIFY_PORT:-$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')}
 python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SITE/docs" > /dev/null 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2> /dev/null' EXIT

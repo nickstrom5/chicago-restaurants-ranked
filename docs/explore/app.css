@@ -346,7 +346,7 @@ footer.site :focus-visible { outline-color: #fff; }
 footer.site nav { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-bottom: 16px; }
 footer.site nav a { display: inline-flex; align-items: center; min-height: 36px; }
 footer.site .fine { color: #C9D4EC; max-width: 860px; margin: 0 0 10px; line-height: 1.55; }
-footer.site .hub { display: inline-block; padding: 12px 0; }      /* More states: a full-height target, not one line of small print */
+footer.site .hub { display: inline-block; padding: 4px 0; margin: -4px 0; }   /* "Eats Ranked" in the last line: a taller target, the line unchanged */
 
 /* ---------------------------------------------------------------- list + sidebar layout (boards, search) */
 .d-only { display: none; }

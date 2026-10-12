@@ -1,7 +1,7 @@
 {
   "name": "Chicago Restaurants: Ranked",
   "short_name": "Chi Ranked",
-  "description": "A–F health grades for Chicago restaurants, built from City of Chicago inspection records.",
+  "description": "Our A–F grades for Chicago restaurants, calculated from City of Chicago inspection records. Not official City grades.",
   "start_url": "/",
   "scope": "/",
   "display": "browser",

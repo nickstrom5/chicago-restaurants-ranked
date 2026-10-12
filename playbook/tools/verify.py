@@ -4,13 +4,17 @@ The site lives at the root of https://chicago.eatsranked.com/. Serve docs/ at th
 SITE_ROOT points it at another server; a root-absolute link ("/x", used by 404.html) resolves against SITE_ROOT, so
 docs/ served under a path prefix (as publish_data.py stages it) checks the same way. Exit code 1 if anything fails.
 PAGES get every check. Every page in sitemap.xml, including ones built elsewhere (the web version, explore/), gets the
-site-wide ones in site_wide(): no old address, the hub link, canonical = og:url = its sitemap URL, JSON-LD that parses
-and points at the domain, no "every Chicago restaurant" claim, and the Content-Security-Policy meta (right after
+site-wide ones in site_wide(): no old address, the hub link in the Eats Ranked family line ("Part of Eats Ranked, restaurant
+apps state by state."), canonical = og:url = its sitemap URL, JSON-LD that parses and points at the domain, no "every
+Chicago restaurant" claim, no bare "A–F health grades" in <head> (they're our grades), and the Content-Security-Policy meta (right after
 <meta charset>; script-src 'self' with a script file, 'none' without) with no inline script or event handler for it to
-block. Also /.well-known/security.txt (unexpired) and /favicon.ico.
+block. index.html's Organization names its parent (the Eats Ranked hub: @id, name, url) and the contact email; 404.html
+names the site for a shared link (og:site_name). Also /.well-known/security.txt (unexpired), /favicon.ico and
+site.webmanifest (no bare "A–F health grades" there either).
 The data pages (lists/, neighborhoods/, cuisines/; playbook/tools/static_pages.mjs writes them from data/v1) get data_pages():
-the site-wide checks, every place they link in the published data, the intro's counts and each row's grade and latest
-result against that data, the area and cuisine order, noindex exactly when fewer than 20 places have a grade, and the
+the site-wide checks, title 50–60 and description 140–160 characters on every indexed one (as PAGES), every place they
+link in the published data, the intro's counts and each row's grade and latest result against that data, the area and
+cuisine order, noindex exactly when fewer than 20 places have a grade, and the
 sitemap, the index pages' links and the folders on disk (DOCS, default docs/ beside playbook/) naming the same pages, with
 each data page's sitemap lastmod the day the data went live (the manifest's "published", as a Chicago day)."""
 import json, re, sys, urllib.request, urllib.error, html, hashlib, datetime as dt
@@ -43,6 +47,18 @@ def site_url(base, v):
 # our data covers nearly every Chicago restaurant, not every one (a few are filed under other City facility types).
 # Narrow on purpose: "Every restaurant in Chicago is inspected by the City" is about the City, not our coverage.
 OVERCLAIM = re.compile(r"(?<!nearly\s)\bevery\s+(?:Chicago\s+restaurant|restaurant\s+in\s+the\s+city)", re.I)
+# the grades are ours, not the City's (it reports Pass, Pass w/ Conditions or Fail): a description that a search result, a
+# share card or an install prompt shows on its own (<head>, JSON-LD, site.webmanifest) says "our A–F grades", never a bare
+# "A–F health grades" that reads as an official rating
+HEALTH = re.compile(r"(?<!\bour )\bA[–-]F health grades?\b", re.I)
+CONTACT = "nick@eatsranked.com"   # the public contact address (Organization email, footers)
+def ld_nodes(blocks):
+    """Every top-level node of the page's JSON-LD blocks (a block's @graph, or the block itself); unparsable blocks skipped."""
+    for b in blocks:
+        try: j = json.loads(b)
+        except Exception: continue
+        for x in (j.get("@graph", [j]) if isinstance(j, dict) else j if isinstance(j, list) else []):
+            if isinstance(x, dict): yield x
 def ld_urls(x):
     """Every http(s) string in a JSON-LD value."""
     if isinstance(x, dict): return [u for v in x.values() for u in ld_urls(v)]
@@ -55,7 +71,11 @@ def site_wide(page, src, p):
     if re.search(r'(?:href|src|content)="/chicago-restaurants-ranked/', src): bad(name, "root path with the old /chicago-restaurants-ranked/ prefix")
     links = [a.get("href") for t, a in p.tags if t == "a"]
     if HUB not in links: bad(name, "no footer link to", HUB)
+    # the family line every Eats Ranked state site carries (Wisconsin a6d63a5): "Part of Eats Ranked, restaurant apps state by state."
+    if not re.search(r'Part of <a [^>]*href="' + re.escape(HUB) + r'"[^>]*>Eats Ranked</a>, restaurant apps state by state\.', src):
+        bad(name, "footer: no 'Part of Eats Ranked, restaurant apps state by state.' line")
     for m in OVERCLAIM.finditer(html.unescape(src)): bad(name, "claims", repr(m.group(0)), "(say 'nearly every')")
+    for m in HEALTH.finditer(html.unescape(src.split("</head>")[0])): bad(name, "<head> says", repr(m.group(0)), "(say 'our A–F grades': they aren't official)")
     metas = {(a.get("name") or a.get("property")): a.get("content") for t, a in p.tags if t == "meta"}
     if "noindex" not in (metas.get("robots") or ""):
         exp = BASE + page
@@ -131,49 +151,56 @@ if BASE + WEB_APP not in smurls: bad("sitemap: no", BASE + WEB_APP)
 st, cname = get(ROOT + "CNAME")
 if st != 200 or cname.decode().strip() != DOMAIN: bad("CNAME must say", DOMAIN, "got", st, cname[:60])
 for page in PAGES:
-    url = ROOT + page; st, body = get(url); print(f"\n== {page or 'index.html'} [{st}] {len(body)} bytes")
-    if st != 200: bad(page, "status", st); continue
+    url = ROOT + page; st, body = get(url); name = page or "index.html"; print(f"\n== {name} [{st}] {len(body)} bytes")
+    if st != 200: bad(name, "status", st); continue
     src = body.decode("utf-8"); p = P(); p.feed(src)
     metas = site_wide(page, src, p)
     links = [a.get("href") for t, a in p.tags if t == "a"]
-    if not any(h and h.split("#")[0] in (WEB_APP, "/" + WEB_APP) for h in links): bad(page, "no link to the web version", WEB_APP)
+    if not any(h and h.split("#")[0] in (WEB_APP, "/" + WEB_APP) for h in links): bad(name, "no link to the web version", WEB_APP)
     for word in ("Worst inspections", "Recently failed", "worst boards", "Chi Inspect"):   # old or non-neutral names (app Board.swift titles rule)
-        if word.lower() in src.lower(): bad(page, "uses banned wording", repr(word))
-    if '<html lang="en">' not in src: bad(page, "lang")
+        if word.lower() in src.lower(): bad(name, "uses banned wording", repr(word))
+    if '<html lang="en">' not in src: bad(name, "lang")
     h1 = p.heads.count("h1")
-    if h1 != 1: bad(page, "h1 count", h1)
+    if h1 != 1: bad(name, "h1 count", h1)
     # heading order: no jumps of more than one level down
     lv = [int(h[1]) for h in p.heads]
     for a, b in zip(lv, lv[1:]):
-        if b > a + 1: bad(page, "heading jump", a, "->", b)
-    if lv and lv[0] != 1: bad(page, "first heading not h1")
+        if b > a + 1: bad(name, "heading jump", a, "->", b)
+    if lv and lv[0] != 1: bad(name, "first heading not h1")
     for lm in ("header", "main", "nav", "footer"):
-        if not any(t == lm for t, _ in p.tags): bad(page, "missing landmark", lm)
+        if not any(t == lm for t, _ in p.tags): bad(name, "missing landmark", lm)
     title = html.unescape(p.title); desc = metas.get("description", "")
     noindex = "noindex" in (metas.get("robots") or "")
     print(f"  title {len(title)}: {title}\n  desc {len(desc)}: {desc[:90]}...")
     if not noindex:   # canonical, og:url and the sitemap entry: site_wide()
-        if not 50 <= len(title) <= 60: bad(page, "title length", len(title))
-        if not 140 <= len(desc) <= 160: bad(page, "desc length", len(desc))
-        if metas.get("robots") != "index,follow,max-image-preview:large": bad(page, "robots meta")
+        if not 50 <= len(title) <= 60: bad(name, "title length", len(title))
+        if not 140 <= len(desc) <= 160: bad(name, "desc length", len(desc))
+        if metas.get("robots") != "index,follow,max-image-preview:large": bad(name, "robots meta")
         for k in ("og:title","og:description","og:type","og:site_name","og:image","og:image:width","og:image:height","og:image:alt",
                   "twitter:card","twitter:title","twitter:description","twitter:image","theme-color"):
-            if not metas.get(k): bad(page, "missing meta", k)
-        if metas.get("twitter:card") != "summary_large_image": bad(page, "twitter card")
-        if not metas.get("og:image","").startswith("https://"): bad(page, "og:image not absolute")
+            if not metas.get(k): bad(name, "missing meta", k)
+        if metas.get("twitter:card") != "summary_large_image": bad(name, "twitter card")
+        if not metas.get("og:image","").startswith("https://"): bad(name, "og:image not absolute")
         st2,_ = get(ROOT + metas["og:image"][len(BASE):])
-        if st2 != 200: bad(page, "og image 404")
+        if st2 != 200: bad(name, "og image 404")
     else:
-        if page != "404.html": bad(page, "unexpected noindex")
+        if page != "404.html": bad(name, "unexpected noindex")
+        elif metas.get("og:site_name") != "Chicago Restaurants: Ranked": bad(name, "404 page: og:site_name", metas.get("og:site_name"), "(a shared broken link still names the site)")
     rels = [(a.get("rel"), a.get("sizes"), a.get("href")) for t, a in p.tags if t == "link"]
     for need in [("icon", None, "svg"), ("icon", "32x32", "favicon-32.png"), ("apple-touch-icon", "180x180", "apple-touch-icon.png"), ("manifest", None, "site.webmanifest")]:
-        if not any(r == need[0] and (need[1] is None or s == need[1]) and h.endswith(need[2]) for r, s, h in rels): bad(page, "missing icon link", need)
+        if not any(r == need[0] and (need[1] is None or s == need[1]) and h.endswith(need[2]) for r, s, h in rels): bad(name, "missing icon link", need)
     # JSON-LD (parse errors, rating/review markup and URLs: site_wide())
     for blk in p.ld:
         try:
             j = json.loads(blk); types = [x.get("@type") for x in j.get("@graph", [j])]; print("  JSON-LD ok:", types)
         except Exception: pass
-    if page not in ("", "404.html") and not any('"BreadcrumbList"' in b for b in p.ld): bad(page, "no BreadcrumbList")
+    if page not in ("", "404.html") and not any('"BreadcrumbList"' in b for b in p.ld): bad(name, "no BreadcrumbList")
+    if page == "":   # the Organization names its parent, the Eats Ranked hub (which lists each state as a subOrganization)
+        org = next((x for x in ld_nodes(p.ld) if x.get("@id") == BASE + "#org"), {})
+        par = org.get("parentOrganization") if isinstance(org.get("parentOrganization"), dict) else {}
+        if par.get("@id") != HUB + "#organization" or par.get("name") != "Eats Ranked" or par.get("url") != HUB:
+            bad(name, "#org parentOrganization should be {@id: " + HUB + "#organization, name: Eats Ranked, url: " + HUB + "}", par)
+        if org.get("email") != CONTACT: bad(name, "#org email", org.get("email"), "should be", CONTACT)
     # FAQ mirror
     faqs = [json.loads(b) for b in p.ld if '"FAQPage"' in b]
     if faqs:
@@ -184,15 +211,15 @@ for page in PAGES:
             vis = re.findall(r"<h2[^>]*>(.*?)</h2>\s*<p>(.*?)</p>", src.split('<div class="qa">')[1].split("</div>")[0], re.S)
             vis = [(html.unescape(re.sub("<[^>]+>", "", a)), html.unescape(re.sub("<[^>]+>", "", b))) for a, b in vis]
         if vis != qs:
-            bad(page, "FAQ mismatch"); [print("   V:", v, "\n   L:", l) for v, l in zip(vis, qs) if v != l]
+            bad(name, "FAQ mismatch"); [print("   V:", v, "\n   L:", l) for v, l in zip(vis, qs) if v != l]
         else: print(f"  FAQ mirror ok ({len(qs)} Qs)")
     # images
     imgs = [a for t, a in p.tags if t == "img"]
     for a in imgs:
         for k in ("alt", "width", "height", "decoding"):
-            if not a.get(k): bad(page, "img missing", k, a.get("src"))
-        if "screenshots/" in a.get("src","") and a.get("loading") != "lazy": bad(page, "screenshot not lazy", a["src"])
-        if "favicon" in a.get("src","") and a.get("loading") == "lazy": bad(page, "header logo lazy")
+            if not a.get(k): bad(name, "img missing", k, a.get("src"))
+        if "screenshots/" in a.get("src","") and a.get("loading") != "lazy": bad(name, "screenshot not lazy", a["src"])
+        if "favicon" in a.get("src","") and a.get("loading") == "lazy": bad(name, "header logo lazy")
     print(f"  imgs: {len(imgs)} all with alt/width/height" if imgs else "  imgs: 0")
     # links + assets
     ext_bad = []; n_int = 0
@@ -205,28 +232,28 @@ for page in PAGES:
             if u.netloc == HOST:
                 n_int += 1
                 st3, b3 = get(full.split("#")[0])
-                if st3 != 200: bad(page, "broken internal", v, st3)
+                if st3 != 200: bad(name, "broken internal", v, st3)
                 frag = u.fragment
                 if frag.startswith("/") and full.split("#")[0] == ROOT + WEB_APP:
                     # a route in the web version (explore/#/map, #/search?q=…), not an anchor: one of the routes app.js knows
                     if frag[1:].split("?")[0].split("/")[0] not in ("", "map", "search", "board", "place", "saved", "about"):
-                        bad(page, "links an unknown web-version route", v)
+                        bad(name, "links an unknown web-version route", v)
                 elif frag and full.split("#")[0].rstrip("/") == url.rstrip("/").replace("index.html",""):
-                    if f'id="{frag}"' not in src: bad(page, "missing anchor", frag)
+                    if f'id="{frag}"' not in src: bad(name, "missing anchor", frag)
                 elif frag:
-                    if f'id="{frag}"'.encode() not in b3: bad(page, "missing anchor on target", v)
+                    if f'id="{frag}"'.encode() not in b3: bad(name, "missing anchor on target", v)
             else:
-                if t in ("script", "link", "img", "source"): bad(page, "external resource", v)
+                if t in ("script", "link", "img", "source"): bad(name, "external resource", v)
                 if t == "a" and "noopener" not in (a.get("rel") or ""): ext_bad.append(v)
-    if ext_bad: bad(page, "external links without noopener", ext_bad)
+    if ext_bad: bad(name, "external links without noopener", ext_bad)
     print(f"  internal refs checked: {n_int}")
     if p.inart or p.art:
         words = len(re.findall(r"[A-Za-z0-9’'–-]+", " ".join(p.art)))
         print("  article words:", words)
-        if page in PAGES[1:4] and not 400 <= words <= 760: bad(page, "article word count", words)
+        if page in PAGES[1:4] and not 400 <= words <= 760: bad(name, "article word count", words)
     if page == "":
         print("  index weight (html only):", len(body), "bytes")
-        if len(body) > 150_000: bad("index too heavy")
+        if len(body) > 150_000: bad(name, "too heavy:", len(body), "bytes")
 # ---- the data pages: written from data/v1 by playbook/tools/static_pages.mjs, so checked against the same data
 GEN = ("lists/", "neighborhoods/", "cuisines/")
 DOCS = os.environ.get("DOCS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs")
@@ -310,6 +337,9 @@ def data_pages():
             if not any(t == lm for t, _ in p.tags): bad(name, "missing landmark", lm)
         title, desc = html.unescape(p.title).strip(), (metas.get("description") or "").strip()
         if not title or not desc: bad(name, "title or description missing")
+        # the root pages' lengths (static_pages.mjs sized() picks a candidate in range whatever the counts and dates say)
+        if index and not 50 <= len(title) <= 60: bad(name, "title length", len(title), repr(title))
+        if index and not 140 <= len(desc) <= 160: bad(name, "description length", len(desc), repr(desc))
         if title in titles: bad(name, "same title as", titles[title])
         if desc in descs: bad(name, "same description as", descs[desc])
         titles[title], descs[desc] = page, page
@@ -419,6 +449,8 @@ for ic in m["icons"]:
     st4,_ = get(site_url(ROOT+"site.webmanifest", ic["src"]))
     if st4 != 200: bad("manifest icon", ic["src"], st4)
 if m.get("start_url") != "/" or m.get("scope") != "/": bad("manifest start_url/scope must be / (site at the domain root)")
+for k in ("name", "short_name", "description"):
+    for x in HEALTH.finditer(str(m.get(k) or "")): bad("site.webmanifest", k, "says", repr(x.group(0)), "(say 'our A–F grades')")
 print("\nmanifest ok:", m["start_url"], [i["src"] for i in m["icons"]])
 st, ico = get(ROOT + "favicon.ico")   # browsers and Bing ask for it whatever the pages link
 if st != 200 or ico[:4] != b"\x00\x00\x01\x00": bad("favicon.ico", st, "not an icon file" if st == 200 else "")

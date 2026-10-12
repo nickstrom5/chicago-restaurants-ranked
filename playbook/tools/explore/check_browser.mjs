@@ -4,11 +4,12 @@
 // note on every row), the other side of a search (Also in Chicago, In Rest of Illinois: that side's own first rows and count,
 // its link, said once to a screen reader, and the old button when the rest of Illinois can't load), place pages (newer City
 // results, aka "A · B", alt names never shown), a board with newer results, the home grid's counts, and the map (dots drawn,
-// the legend's count, a focused place's card). On every page: no
+// the legend's count, a focused place's card, Escape closing it from inside the map view). On every page: no
 // requests anywhere but the local server, no cookies, no console errors, nothing wider than the screen. Screenshots go to
 // --shots. Chrome runs with its own profile (--profile), never the user's.
 //
 // usage: node check_browser.mjs --oracle <oracle.json> --mirror <mirror dir> --profile <dir> --shots <dir> [--chrome <path>]
+//   MIRROR_PORT  serve the mirror on this port (default: any free one)
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
@@ -45,7 +46,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // ------------------------------------------------------------------------------------------------ a server and Chrome
 const freePort = () => new Promise((res, rej) => { const s = createServer(); s.unref(); s.on("error", rej); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => res(p)); }); });
-const port = await freePort();
+const port = Number(process.env.MIRROR_PORT) || await freePort();   // MIRROR_PORT: a fixed port, on a machine that hands them out
 const ORIGIN = `http://127.0.0.1:${port}`;
 const server = spawn("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", MIRROR], { stdio: "ignore" });
 for (let i = 0; i < 100; i++) { try { if ((await fetch(ORIGIN + "/explore/")).ok) break; } catch { /* starting */ } await sleep(100); }
@@ -127,6 +128,13 @@ async function pageChecks(name) {
   check((await js("document.cookie")) === "", `${name}: no cookies`, "", await js("document.cookie"));
 }
 const hashURL = (h) => `${ORIGIN}/explore/${h}`;
+/** Presses a key (Escape, Enter, ...) on whatever has focus, as a real keyboard does. */
+async function key(name) {
+  const code = { Escape: 27, Enter: 13, Tab: 9 }[name];
+  await page("Input.dispatchKeyEvent", { type: "rawKeyDown", key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+  await page("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+  await sleep(60);
+}
 /** Opens a route. Within the app it's a hash change, which renders on a later task: a marker left in the old view (a full
  *  render replaces the view's contents) keeps the old page from passing for the new one. */
 async function go(h) {
@@ -553,7 +561,7 @@ async function checkHome(label) {
   check(got.illinois && (got.illinois.n === il.toLocaleString("en-US") || got.illinois.n === O.meta.illinoisRestaurantCount.toLocaleString("en-US")), `${label} home: Rest of Illinois count`, il, got.illinois && got.illinois.n);
   check(got.all && got.all.s === "Search nearly every restaurant, café, bakery and tavern in the city", `${label} home: All Restaurants card wording`, "Search nearly every…", got.all && got.all.s);
   check(got.watch && got.watch.s === "Places whose latest City inspection failed, in the last 90 days", `${label} home: Inspection Watch wording`, "…in the last 90 days", got.watch && got.watch.s);
-  const hub = await js(`[...document.querySelectorAll("footer a")].some((a) => a.getAttribute("href") === "https://eatsranked.com/" && a.textContent === "More states at eatsranked.com")`);
+  const hub = await js(`[...document.querySelectorAll("footer a")].some((a) => a.getAttribute("href") === "https://eatsranked.com/" && a.textContent === "Eats Ranked" && /Part of Eats Ranked, restaurant apps state by state\./.test(a.parentElement.textContent))`);
   check(hub, `${label} home: footer link to eatsranked.com`, true, hub);
 }
 
@@ -578,6 +586,19 @@ async function checkMap(label, phone) {
     check(got.h2 === focus.name && got.open === `#/place/${encodeURIComponent(focus.id)}`, `${label} map: focused place's card`, focus.name, got);
     check(got.bottom <= got.limit + 1 && got.top >= 0, `${label} map: the card is on screen${phone ? " above the tab bar" : ""}`, `bottom <= ${got.limit}`, got.bottom);
     await shot(`${label}-map-focus`);
+    // Escape closes the card from anywhere in the map view: from inside the card (its Close button, its Open place link)
+    // focus moves to the map; from a control outside it, it stays there (a zoom button; a phone hides those under a card,
+    // so there the Filters button)
+    const other = phone ? ["the Filters button", "[data-toggle-filters]"] : ["a zoom button", ".mctl [data-z=in]"];
+    for (const [what, sel, back] of [["its Close button", "#mcard .close", "#map"], ["its Open place link", "#mcard a.btn.solid", "#map"], [...other, other[1]]]) {
+      await go(`#/map?focus=${encodeURIComponent(focus.id)}`);
+      if (!(await waitFor(`!document.querySelector("#mcard").hidden`, "the focused place's card"))) break;
+      const on = await js(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); el.focus(); return document.activeElement === el; })()`);
+      if (!check(on, `${label} map: ${what} takes focus`, true, on)) continue;
+      await key("Escape");
+      const after = await js(`({ hidden: document.querySelector("#mcard").hidden, focus: document.activeElement === document.querySelector(${JSON.stringify(back)}) })`);
+      check(after.hidden && after.focus, `${label} map: Escape from ${what} closes the card, focus on ${back}`, { hidden: true, focus: true }, after);
+    }
   }
   await go("#/map?scope=illinois");
   if (await waitFor(`document.querySelector("#map") && +document.querySelector("#map").dataset.shown > 0`, "Illinois map dots", 30000)) {

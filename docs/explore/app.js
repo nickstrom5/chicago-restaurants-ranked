@@ -1561,7 +1561,17 @@ function viewMap(view, route) {
     if (k) { e.preventDefault(); cam.x += k[0]; cam.y += k[1]; remember(); schedule(); }
     else if (e.key === "+" || e.key === "=") { e.preventDefault(); zoomAt(1.5, W / 2, H / 2); }
     else if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomAt(1 / 1.5, W / 2, H / 2); }
-    else if (e.key === "Escape" && state.mapSel) showCard(null);
+  });
+  // Escape closes the place card from anywhere in the map view: the map, the card's own buttons and links, the zoom
+  // buttons. Not when the filters panel took it first (its Escape closes the panel). Focus inside the card, which goes
+  // away, moves to the map, as the card's Close button does.
+  view.querySelector(".mapview").addEventListener("keydown", (e) => {
+    const card = $("#mcard");
+    if (e.key !== "Escape" || e.defaultPrevented || card.hidden) return;
+    e.preventDefault();
+    const inCard = card.contains(document.activeElement);
+    showCard(null);
+    if (inCard) cv.focus();
   });
   view.querySelector(".mctl").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-z]");

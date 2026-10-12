@@ -12,7 +12,10 @@ Internal notes. This folder is **not** published; only `docs/` is.
   `docs/cuisines/` (one per cuisine group): static, JavaScript-free pages for search engines, written from the published
   data by `playbook/tools/static_pages.mjs` (§6), never by hand. Every footer links to `lists/`, `neighborhoods/` and
   `cuisines/`; the home page's boards section and the web version's footer do too.
-- Hub: https://eatsranked.com/ (the other states). Every footer has "More states at eatsranked.com".
+- Hub: https://eatsranked.com/ (the other states). Every footer ends with the Eats Ranked family line every state site
+  carries, "Part of Eats Ranked, restaurant apps state by state." (the link is "Eats Ranked"), and the home page's
+  Organization names the hub as its `parentOrganization` (@id, name, url) and carries the contact email; `verify.py`
+  checks all three.
 - Repo: https://github.com/nickstrom5/chicago-restaurants-ranked (public; support is by email, nick@eatsranked.com, with GitHub Issues as a public option)
 - Static HTML, inline CSS, no build step, no third-party scripts, fonts or tracking. `docs/*.html` is the source of truth.
   The data pages share `docs/pages.css` (the guide pages' look, with the web version's list rows).
@@ -154,8 +157,12 @@ Rules for anyone editing `docs/`.
   row's Socrata `:created_at`: of 888 inspections dated September 1–28, 139 were posted 8 or more days after the visit
   (up to 26), and new rows were added on most days, weekends included.
 - **Things the site deliberately does not claim:**
-  - No Bib Gourmand or Green Star. `curated.json` has none as of 2026-09-26, so the site says "Michelin Guide Chicago 2025 stars".
-    If the data gains them, add them to the copy.
+  - Michelin distinctions only as the data has them. On 2026-09-26 `curated.json` had no Bib Gourmand or Green Star and
+    the home page said "Michelin Guide Chicago 2025 stars". The published data has both now (29 Bib Gourmands and 2 Green
+    Stars in the October 5, 2026 file), so the home page's sources say "Michelin Guide Chicago 2025 distinctions (stars, Bib
+    Gourmand and Green Star)", as the web version's About does; if one drops out of the data, drop it from the copy.
+    The home page's sources and the Michelin & Beard list carry the web version's trademark line word for word
+    ("MICHELIN, MICHELIN Guide and Bib Gourmand are trademarks of Michelin. …"; `TRADEMARKS` in `static_pages.mjs`).
   - Not "all 77 community areas". The data covers 76 (Burnside has no licensed places).
   - Not "every Chicago restaurant", for coverage or for grades. A few real restaurants are filed by the City under other
     facility types (Grocery Store, Shared Kitchen) and aren't in the data, so say "nearly every"; `verify.py` (every
@@ -213,8 +220,8 @@ python3 playbook/tools/verify.py            # 200s, links, assets, anchors, JSON
                                             # title 50–60 / description 140–160, canonical = og:url = sitemap,
                                             # img alt + width/height, FAQ = JSON-LD, noopener, guide word counts,
                                             # docs/CNAME, robots.txt Sitemap line, manifest scope, no old github.io
-                                            # URL, and on every page the explore/ link and the eatsranked.com hub link
-SITE_ROOT=http://127.0.0.1:8791/ ../chi-eats/.venv/bin/python playbook/tools/shoot.py /tmp/cri-shots   # 375 and 1440 px + overflow
+                                            # URL, and on every page the explore/ link and the Eats Ranked family line
+../chi-eats/.venv/bin/python playbook/tools/shoot.py /tmp/cri-shots   # 375 and 1440 px + overflow (SITE_ROOT as verify.py)
 ```
 
 Every URL in `sitemap.xml` also gets the site-wide checks, including pages built elsewhere such as `explore/`: no old
@@ -230,8 +237,12 @@ Explore workflow) failed these on 2026-09-28 and passes them as of 2026-10-05.
 
 `verify.py` exits 1 on any problem. Set `SITE_ROOT` to check another server, including the live site
 (`SITE_ROOT=https://chicago.eatsranked.com/ python3 playbook/tools/verify.py`). A root-absolute link (`/x`, in
-`404.html`) resolves against `SITE_ROOT`, so docs/ served under a path prefix checks the same way. `shoot.py` still
-defaults to the old `/chicago-restaurants-ranked/` path, hence its `SITE_ROOT`.
+`404.html`) resolves against `SITE_ROOT`, so docs/ served under a path prefix checks the same way. `shoot.py` defaults
+to `http://127.0.0.1:8791/` too (until 2026-10-12 it defaulted to the old `/chicago-restaurants-ranked/` path). The data
+pages get the root pages' title (50–60) and description (140–160) lengths; `static_pages.mjs` meets them whatever the
+week's counts and records date (its `sized()` candidates), so the weekly publish's verify.py gate doesn't trip on a month
+name. A bare "A–F health grades" in any `<head>` or in `site.webmanifest` fails: they're our grades ("our A–F grades").
+On a shared machine, `VERIFY_PORT` and `MIRROR_PORT` give `run_all.sh` fixed ports (default: any free one).
 
 **Dates are the push day (checklist).** Before every push of page edits: each visible "Updated"/"Effective" date, Article
 `dateModified` and sitemap `lastmod` you changed is the day of the push (§3); if the push slips to a later day, change them
@@ -280,13 +291,13 @@ each submission, check again that the pages and the manifest return 200.
    the "about once a week" wording on every page is false within a couple of weeks.
 
 The hub link: https://eatsranked.com/ is live over HTTPS (checked 2026-09-28: 200 from GitHub Pages, "Eats Ranked:
-Restaurant Grades & Rankings, State by State"), so every footer's "More states at eatsranked.com" works.
+Restaurant Grades & Rankings, State by State"), so every footer's "Part of Eats Ranked" link works.
 
 ### Before launch: og.png (kept as is on 2026-10-12, pending Nick's call)
 
 `og.png`, the share image on every Chicago page (the web version and the data pages included), reads "Free for iPhone &
 iPad · No ads · No account" under "Chicago restaurants, graded A–F and mapped", though the app can't be installed yet
-(SEO8-04). It stays until launch unless Nick decides otherwise (the lowest-risk choice): the 7 root pages' `og:image:alt` / `twitter:image:alt` ("Free for iPhone and iPad, no
+(SEO8-04). It stays until launch unless Nick decides otherwise (the lowest-risk choice): the 7 root pages' and `404.html`'s `og:image:alt` / `twitter:image:alt` ("Free for iPhone and iPad, no
 ads, no account.") and the home hero's kicker (`index.html`, "Free for iPhone and iPad", above the "Coming soon to the App
 Store" badge) say the same, and only the home page's `<head>` title and description say "coming soon". If Nick wants it
 changed before launch, change all of these together: the `sub` line of `chi-eats/ios/scripts/make-brand.swift` (386),
@@ -332,6 +343,10 @@ without one) loads the data exactly as the web version does (manifest, size, sha
 everything from `docs/explore/logic.js`, the port `check_logic.mjs` tests against the app's Swift: board membership,
 order and metrics, explainers, and each area or cuisine list in the order the web version's Search shows it. Each page
 shows at most 100 rows and links to the full list in the web version; every row links to `explore/#/place/<license>`.
+A cuisine page says its group the way a sentence does ("Burger places in Chicago", "Steakhouses", "Coffee shops and
+cafés"), from `CUISINE_PLACES` in the script, while its breadcrumb and lede keep the app's label ("Burgers"); a group the
+data gains reads "<label> places" until it's added there (the run prints a note). Titles and descriptions come from
+length-checked candidates (`sized()`; verify.py's 50–60 and 140–160).
 Records give only a year, so Oldest stops before a run of places with the same year and the same iconic points that
 crosses row 100 (their order says nothing about which opened first) and says how many tie, and when Newest's last row is
 partway through a year, its heading names that year's A-to-Z run instead of saying "Top 100" (QA6-SITE-04; the order

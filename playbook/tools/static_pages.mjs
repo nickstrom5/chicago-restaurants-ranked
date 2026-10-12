@@ -56,6 +56,8 @@ const CSP = "default-src 'none'; script-src 'none'; style-src 'self'; img-src 's
 const GRADES_LONG = "Our 0–100 score and A–F grade, calculated from City of Chicago inspection records since January 2023. Not official City grades: the City reports Pass, Pass w/ Conditions or Fail. An inspection describes conditions on the day of the visit.";
 const GRADES_CAPTION = "Our grades from City inspection records, not official City grades.";
 const VENUES = "not counting airports, stadiums, cafeterias and other non-restaurants";
+// the web version's About (Honors and published figures), word for word; under the Michelin & Beard list and on index.html
+const TRADEMARKS = "MICHELIN, MICHELIN Guide and Bib Gourmand are trademarks of Michelin. James Beard Foundation and James Beard Award are trademarks of the James Beard Foundation. Other names belong to their owners. This app is not affiliated with or endorsed by any of them.";
 
 function fail(msg) { console.error(`static_pages: FAIL ${msg}`); process.exit(2); }
 
@@ -132,8 +134,46 @@ const gradeLine = (c) => `<span data-n="graded">${n(c.graded)}</span> ${c.graded
   + (c.graded ? `: ${L.GRADES_ORDER.map((g) => `<span data-n="${g}">${n(c[g])}</span> ${g}`).join(", ")}.` : ".");
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const word = (k) => WORDS[k] ?? n(k);
-/** The first candidate that fits in max characters (titles 60, descriptions 160, so search results don't cut them), else the last. */
-const fit = (max, ...xs) => xs.find((x) => x.length <= max) ?? xs[xs.length - 1];
+// Lengths: search results cut a title after about 60 characters and a description after about 160, and verify.py wants
+// every indexed page's title at 50–60 and its description at 140–160, as on the root pages. A description carries counts and
+// the records date, which change with every publish ("May 4" to "September 28" alone is 7 characters), so it comes as
+// candidates, mostly from the longest to the shortest and never more than 21 characters (the range's width) apart: one of
+// them always lands in range, whatever the data says, and the publish's verify.py gate never trips on a month name.
+const TITLE = [50, 60], DESC = [140, 160];
+/** The first candidate whose length is in [lo, hi], else the first that isn't too long, else the last. */
+const sized = ([lo, hi], ...xs) => xs.find((x) => x.length >= lo && x.length <= hi) ?? xs.find((x) => x.length <= hi) ?? xs[xs.length - 1];
+/** An area's or cuisine's description: our grades for `what` ("57 places in the Loop, Chicago"), with how many are graded A
+ *  when it fits. Candidates 11, at most 16 and 11 characters apart; the last, 11 longer than the first, only for a short
+ *  name with no A (so the City's name isn't said twice when it isn't needed). */
+const gradeDesc = (what, rt, A) => {
+  const a = A ? `: ${n(A)} graded A` : "";
+  const from = (src) => `Our A–F grades for ${what}, from ${src} through ${longDate(rt)}`;
+  return sized(DESC,
+    `${from("City inspection records")}${a}. Not official City of Chicago grades.`,
+    `${from("City inspection records")}${a}. Not official City grades.`,
+    `${from("City inspection records")}. Not official City grades.`,
+    `${from("City records")}. Not official City grades.`,
+    `${from("City of Chicago inspection records")}${a}. Not official City of Chicago grades.`);
+};
+/** Each cuisine group as a sentence says it ("burger places", "steakhouses"), not its filter label plus "places" ("Burgers
+ *  places", "Steakhouse places"). Mid-sentence case: common nouns lowercase, names of peoples and places capitalized. A group
+ *  the data gains reads "<label> places" until it's added here (the run prints a note). */
+const CUISINE_PLACES = {
+  "African": "African places", "American & Other": "American and other places", "BBQ": "BBQ places",
+  "Bakery & Sweets": "bakeries and sweet shops", "Bar & Pub": "bars and pubs", "Breakfast & Diner": "breakfast places and diners",
+  "Burgers": "burger places", "Chicken & Wings": "chicken and wing places", "Chinese": "Chinese places",
+  "Coffee & Café": "coffee shops and cafés", "European": "European places", "Healthy & Vegan": "healthy and vegan places",
+  "Hot Dogs & Beef": "hot dog and Italian beef places", "Italian": "Italian places", "Japanese & Sushi": "Japanese and sushi places",
+  "Korean": "Korean places", "Latin & Caribbean": "Latin and Caribbean places",
+  "Mediterranean & Middle Eastern": "Mediterranean and Middle Eastern places", "Mexican": "Mexican places", "Pizza": "pizza places",
+  "Sandwiches & Deli": "sandwich shops and delis", "Seafood": "seafood places", "Soul & Southern": "soul food and Southern places",
+  "South Asian": "South Asian places", "Steakhouse": "steakhouses", "Thai": "Thai places", "Vietnamese": "Vietnamese places",
+};
+const unphrased = new Set();
+const placesOf = (name) => { if (!Object.hasOwn(CUISINE_PLACES, name)) unphrased.add(name); return CUISINE_PLACES[name] ?? `${name} places`; };
+const upFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+/** "coffee shops and cafés" -> "Coffee Shops & Cafés", for a title. */
+const titleWords = (s) => s.split(" ").map((w) => (w === "and" ? "&" : upFirst(w))).join(" ");
 
 // ------------------------------------------------------------------------------------------------ ties (Oldest, Newest)
 // Records give only a year, so these lists hold long runs of places the board can't put in a meaningful order. The pages
@@ -254,8 +294,7 @@ ${body}
     <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
     <p class="fine">City of Chicago data disclaimer: This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one's own risk.</p>
     <p class="fine">Inspection and license records: City of Chicago Data Portal. Property values: Cook County Assessor's Office. Restaurant websites and places outside Chicago: Overture Maps Foundation (CDLA Permissive 2.0, Apache 2.0, CC0).</p>
-    <p class="fine"><a class="hub" href="https://eatsranked.com/" rel="noopener">More states at eatsranked.com</a></p>
-    <p class="fine">© 2026 Nicholas Soderstrom. Made in Chicago.</p>
+    <p class="fine">© 2026 Nicholas Soderstrom. Made in Chicago. Part of <a class="hub" href="https://eatsranked.com/" rel="noopener">Eats Ranked</a>, restaurant apps state by state.</p>
   </div>
 </footer>
 </body>
@@ -358,10 +397,8 @@ ${aboutBox(" Each place’s page in the web version links to its own City inspec
     <ul class="links" role="list">${siblings.map((x) => `<li><a href="${up}neighborhoods/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
     ` : ""}<p><a href="${up}neighborhoods/">All Chicago neighborhoods</a> · <a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "area", path, index,
-      title: fit(60, `${a.name} Restaurant Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades | Chi Ranked`),
-      desc: fit(160, `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${areaIn(a.name)}, Chicago, from City inspection records through ${longDate(rt)}`
-        + (a.c.A ? `: ${n(a.c.A)} graded A` : "") + `. Not official City grades.`,
-        `Our A–F grades for ${plural(a.c.graded, "place", "places")} in ${areaIn(a.name)}, Chicago, from City inspection records through ${longDate(rt)}. Not official City grades.`),
+      title: sized(TITLE, `${a.name} Restaurant Inspection Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades | Chi Ranked`),
+      desc: gradeDesc(`${plural(a.c.graded, "place", "places")} in ${areaIn(a.name)}, Chicago`, rt, a.c.A),
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }, { name: a.name, path }],
       h1: `${a.name} restaurant inspection grades`, kicker: `Chicago community area${a.side ? " · " + sideName(a.side) : ""}`, body });
   }
@@ -387,7 +424,7 @@ ${aboutBox()}
     <p><a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "areas", path: "neighborhoods/", index: true,
       title: "Chicago Restaurant Grades by Neighborhood | Chi Ranked",
-      desc: `Our A–F grades for ${n(areaC.graded)} places in ${n(areas.length)} Chicago community areas, from City inspection records through ${longDate(rt)}. Not official City grades.`,
+      desc: gradeDesc(`${n(areaC.graded)} places in ${n(areas.length)} Chicago community areas`, rt, areaC.A),
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }],
       h1: "Chicago restaurant grades by neighborhood", kicker: "Neighborhoods", body });
   }
@@ -405,19 +442,17 @@ ${sourceLine(rt)}
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p) => placeRow(up, p, p.hood)).join("\n")}
     </ol>
-    <p class="more">${c.r.total > shown.length ? `Showing the first <span data-n="shown">${n(shown.length)}</span> of ${n(c.r.total)}. ` : ""}<a href="${searchHref(up, "cuisine", c.name)}">${c.r.total > shown.length ? `See all ${n(c.r.total)} in the web version` : `Filter and map ${esc(c.name)} in the web version`}</a></p>
+    <p class="more">${c.r.total > shown.length ? `Showing the first <span data-n="shown">${n(shown.length)}</span> of ${n(c.r.total)}. ` : ""}<a href="${searchHref(up, "cuisine", c.name)}">${c.r.total > shown.length ? `See all ${n(c.r.total)} in the web version` : `Filter and map ${esc(placesOf(c.name))} in the web version`}</a></p>
 ${aboutBox(cuisineNote + " Each place’s page in the web version links to its own City inspection records.")}
     <h2>More cuisines</h2>
     <ul class="links" role="list">${cuisines.filter((x) => x !== c).map((x) => `<li><a href="${up}cuisines/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
     <p><a href="${up}cuisines/">All cuisines</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "cuisine", path, index,
-      title: fit(60, `Chicago ${c.name} Places: Inspection Grades | Chi Ranked`, `Chicago ${c.name}: Inspection Grades | Chi Ranked`,
+      title: sized(TITLE, `Chicago ${titleWords(placesOf(c.name))}: Inspection Grades | Chi Ranked`, `Chicago ${c.name}: Inspection Grades | Chi Ranked`,
         `Chicago ${c.name} Grades | Chi Ranked`),
-      desc: fit(160, `Our A–F grades for ${plural(c.c.graded, "Chicago place", "Chicago places")} under ${c.name}, from City inspection records through ${longDate(rt)}`
-        + (c.c.A ? `: ${n(c.c.A)} graded A` : "") + `. Not official City grades.`,
-        `Our A–F grades for ${plural(c.c.graded, "Chicago place", "Chicago places")} under ${c.name}, from City inspection records through ${longDate(rt)}. Not official City grades.`),
+      desc: gradeDesc(c.c.graded === 1 ? `1 Chicago place under ${c.name}` : `${n(c.c.graded)} ${placesOf(c.name)} in Chicago`, rt, c.c.A),
       crumbs: [home, { name: "Cuisines", path: "cuisines/" }, { name: c.name, path }],
-      h1: `${c.name} places in Chicago: inspection grades`, kicker: "Chicago cuisine group", body });
+      h1: `${upFirst(placesOf(c.name))} in Chicago: inspection grades`, kicker: "Chicago cuisine group", body });
   }
   {
     const up = "../";
@@ -436,7 +471,7 @@ ${aboutBox(cuisineNote)}
     <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "cuisines", path: "cuisines/", index: true,
       title: "Chicago Restaurant Inspection Grades by Cuisine | Chi Ranked",
-      desc: `Our A–F grades for ${n(cc.graded)} Chicago places in ${n(cuisines.length)} cuisine groups, from City inspection records through ${longDate(rt)}. Not official City grades.`,
+      desc: gradeDesc(`${n(cc.graded)} Chicago places in ${n(cuisines.length)} cuisine groups`, rt, cc.A),
       crumbs: [home, { name: "Cuisines", path: "cuisines/" }],
       h1: "Chicago restaurant grades by cuisine", kicker: "Cuisines", body });
   }
@@ -471,7 +506,7 @@ ${sourceLine(rt)}
 ${shown.map((p, i) => rankRow(up, p, i, b.id, data)).join("\n")}
     </ol>
     <p class="more">${tieNote}<a href="${boardHref(up, b.id)}">${shown.length < b.list.length ? `See all ${n(b.list.length)} on this list, with filters, in the web version` : "Filter this list in the web version"}</a></p>
-${aboutBox(" Each place’s page in the web version links to its own City inspection records.")}
+${b.id === "honors" ? `    <p class="tm">${esc(TRADEMARKS)}</p>\n` : ""}${aboutBox(" Each place’s page in the web version links to its own City inspection records.")}
     <h2>More rankings</h2>
     <ul class="links" role="list">${boards.filter((x) => x !== b).map((x) => `<li><a href="${up}lists/${x.slug}/">${esc(x.title)}</a></li>`).join("")}</ul>
     <p><a href="${up}lists/">All rankings</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
@@ -481,7 +516,11 @@ ${aboutBox(" Each place’s page in the web version links to its own City inspec
       : `all ${n(b.list.length)} Chicago places on this list,`;
     add({ kind: "board", path, index: true,
       title: `${b.title} · Chicago Restaurant Rankings | Chi Ranked`,
-      desc: `${b.sub}: ${some} with City records through ${longDate(rt)}.`,
+      // the rows' grade chips (none on Michelin & Beard, whose honors are checked by hand), said at a length that fits
+      desc: sized(DESC, ...(b.id === "honors"
+        ? [" Honors checked by hand against public announcements.", " Honors checked by hand.", " Checked by hand.", ""]
+        : [" Shown with our A–F grades, not official City grades.", " Our A–F grades, not official City grades.", " Shown with our A–F grades.", " With our A–F grades.", ""])
+        .map((x) => `${b.sub}: ${some} with City records through ${longDate(rt)}.${x}`)),
       crumbs: [home, { name: "Rankings", path: "lists/" }, { name: b.title, path }],
       h1: b.title, kicker: "Chicago restaurant rankings", body });
   }
@@ -497,7 +536,7 @@ ${aboutBox()}
     <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
     add({ kind: "boards", path: "lists/", index: true,
       title: "Chicago Restaurant Rankings from Public Records | Chi Ranked",
-      desc: `${word(boards.length).replace(/^./, (ch) => ch.toUpperCase())} Chicago restaurant rankings from public records, from the cleanest kitchens to Michelin and James Beard honorees. City records through ${longDate(rt)}.`,
+      desc: sized(DESC, ...["Michelin and James Beard", "Michelin and Beard"].map((h) => `${upFirst(word(boards.length))} Chicago restaurant rankings from public records, from the cleanest kitchens to ${h} honorees. City records through ${longDate(rt)}.`)),
       crumbs: [home, { name: "Rankings", path: "lists/" }],
       h1: "Chicago restaurant rankings", kicker: "Rankings", body });
   }
@@ -563,6 +602,7 @@ const thin = pages.filter((p) => !p.index);
 console.log(`static_pages: ${DOCS} <- manifest ${loaded.manifest.version} (records through ${rt}; published ${loaded.published}, the sitemap lastmod)`);
 console.log(`  ${pages.length} pages: ${boards.length + 1} rankings, ${areas.length + 1} neighborhoods, ${cuisines.length + 1} cuisines; `
   + `${pages.length - thin.length} in the sitemap, ${thin.length} noindex (fewer than ${THIN} graded places: ${thin.map((p) => p.path).join(", ") || "none"})`);
+if (unphrased.size) console.log(`  note: no wording in CUISINE_PLACES for ${[...unphrased].map((x) => JSON.stringify(x)).join(", ")}: their pages say "<group> places"; add it`);
 for (const c of changes.slice(0, 30)) console.log("  " + c);
 if (changes.length > 30) console.log(`  ... ${changes.length - 30} more`);
 console.log(`${pages.length} pages (${pages.length - thin.length} in the sitemap, ${thin.length} noindex), records through ${rt}: `
