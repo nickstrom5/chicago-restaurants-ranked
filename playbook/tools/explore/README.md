@@ -78,7 +78,7 @@ Each step also runs alone; the commands are in `run_all.sh`.
 ## Rules the comparison relies on
 
 - **The one intended difference.** The app makes a link of any website `URL(string:)` accepts; the web makes links of
-  `http(s)` ones only, so a value like `javascript:` could never become a link. The data only has `https`, and the
+  `http(s)` ones only, so a value like `javascript:` could never become a link. The data has both `http` and `https`, and the
   edge fixture has an `ftp:` one to keep this rule honest. Everything else must match exactly.
 - The typed needles of a query word are compared as a set: their order follows a Swift dictionary's, which changes from
   launch to launch, and doesn't change what matches.
