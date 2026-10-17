@@ -14,7 +14,10 @@ not affiliated with the City of Chicago, Cook County, the Michelin Guide or the 
 
 ## Support
 
-Open an issue: https://github.com/nickstrom5/chicago-restaurants-ranked/issues
+Email nick@eatsranked.com. Email is private, so it's the best way for a restaurant owner or for anything personal.
+Answers to common questions: https://chicago.eatsranked.com/support.html
+
+You can also open an issue: https://github.com/nickstrom5/chicago-restaurants-ranked/issues
 
 Issues are public, so please don't include personal information. For a restaurant that looks wrong, include its name,
 address and what's wrong. Inspection results come from the City of Chicago; we fix records that are matched to the wrong

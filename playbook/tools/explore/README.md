@@ -61,7 +61,10 @@ its own ports, set `MIRROR_PORT` (the browser step's mirror) and `VERIFY_PORT` (
    "A · B", hidden alt names absent from the page, a rest-of-Illinois place, an id that isn't in the data), the Failed
    latest and Lowest scores boards (rows, counts, explainer, result lines), the home grid's counts, and the map (dots
    drawn, the legend's count, a focused place's card on screen above the phone's tab bar, Escape closing that card from
-   its Close button and its Open place link (focus back on the map) and from a zoom button (focus stays), the Illinois map). On every
+   its Close button and its Open place link (focus back on the map) and from a zoom button (focus stays), the Illinois map),
+   and Clear all filters pressed from the keyboard on a board, a search and the map (its row hides, so focus moves to the
+   panel's "Filters" heading, never to `<body>`; Tab goes on inside the panel, and a phone's sheet keeps Shift+Tab inside it
+   and closes with Escape). On every
    page: nothing wider than the screen; overall: no request to anything but the local server, no cookies, no console
    errors. Screenshots of each screen are in `$EXPLORE_WORK/shots/`; look at them after layout changes.
 5. **verify.py** (`playbook/tools/verify.py`) with `docs/` served at the root (`SITE_ROOT=http://127.0.0.1:<port>/`),

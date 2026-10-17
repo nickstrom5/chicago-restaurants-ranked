@@ -4,7 +4,8 @@
 // note on every row), the other side of a search (Also in Chicago, In Rest of Illinois: that side's own first rows and count,
 // its link, said once to a screen reader, and the old button when the rest of Illinois can't load), place pages (newer City
 // results, aka "A · B", alt names never shown), a board with newer results, the home grid's counts, and the map (dots drawn,
-// the legend's count, a focused place's card, Escape closing it from inside the map view). On every page: no
+// the legend's count, a focused place's card, Escape closing it from inside the map view), and where focus goes after Clear
+// all filters (a board, a search, the map; a phone's sheet keeps Tab and Escape working). On every page: no
 // requests anywhere but the local server, no cookies, no console errors, nothing wider than the screen. Screenshots go to
 // --shots. Chrome runs with its own profile (--profile), never the user's.
 //
@@ -128,11 +129,13 @@ async function pageChecks(name) {
   check((await js("document.cookie")) === "", `${name}: no cookies`, "", await js("document.cookie"));
 }
 const hashURL = (h) => `${ORIGIN}/explore/${h}`;
-/** Presses a key (Escape, Enter, ...) on whatever has focus, as a real keyboard does. */
-async function key(name) {
+/** Presses a key (Escape, Enter, Tab) on whatever has focus, as a real keyboard does. Enter carries its character, so it
+ *  activates a focused button; modifiers 8 = Shift. */
+async function key(name, modifiers = 0) {
   const code = { Escape: 27, Enter: 13, Tab: 9 }[name];
-  await page("Input.dispatchKeyEvent", { type: "rawKeyDown", key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
-  await page("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+  const down = name === "Enter" ? { type: "keyDown", text: "\r", unmodifiedText: "\r" } : { type: "rawKeyDown" };
+  await page("Input.dispatchKeyEvent", { ...down, key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code, modifiers });
+  await page("Input.dispatchKeyEvent", { type: "keyUp", key: name, code: name, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code, modifiers });
   await sleep(60);
 }
 /** Opens a route. Within the app it's a hash change, which renders on a later task: a marker left in the old view (a full
@@ -610,6 +613,47 @@ async function checkMap(label, phone) {
   }
 }
 
+/** Clear all filters from the keyboard (QA14): its row hides once nothing is set, so focus moves to the panel's "Filters"
+ *  heading instead of dropping to <body>, and Tab goes on inside the panel; on a phone the sheet keeps Shift+Tab inside it
+ *  and still closes with Escape. On a board, a search and the map (which redraws its whole panel on each change). */
+async function checkClearFocus(label, phone) {
+  const FOCUS = (sel) => `(() => { const a = document.activeElement, p = document.querySelector(${JSON.stringify(sel)});
+    return { tag: a ? a.tagName : null, text: a ? a.textContent.trim().slice(0, 30) : null, inPanel: !!(p && a && p.contains(a)),
+      visible: !!(a && a.getClientRects().length), sheet: document.body.classList.contains("sheet-open") }; })()`;
+  for (const [h, sel] of [["#/board/cleanest", "#bpanel"], ["#/search?q=pizza", "#spanel"], ["#/map", "#mpanel"]]) {
+    const what = `${label} ${h} Clear all filters`, gradeA = JSON.stringify(`${sel} button[data-f="grade"][data-v="A"]`);
+    const row = JSON.stringify(`${sel} [data-clearrow]`);
+    await go(h);
+    // a search redraws its panel once the rest of Illinois is in, so that has to settle first
+    if (!(await waitFor(`!!document.querySelector(${gradeA}) && (${JSON.stringify(h)}.indexOf("search") < 0 || ${ALSO_SETTLED})`, `${h} filters`))) continue;
+    // the filters sit behind a button on a phone, and on the map at any width
+    if (!(await js(`document.querySelector(${gradeA}).getClientRects().length > 0`)))
+      await js(`[...document.querySelectorAll("[data-toggle-filters]")].find((b) => b.getClientRects().length).click()`);
+    if (!(await waitFor(`document.querySelector(${gradeA}).getClientRects().length > 0`, `${h} filters open`))) continue;
+    await js(`document.querySelector(${gradeA}).focus()`);
+    await key("Enter");
+    if (!(await waitFor(`/[?&]grade=A/.test(location.hash) && !document.querySelector(${row}).hidden`, `${h} with grade A`))) continue;
+    const on = await js(`(() => { const b = document.querySelector(${JSON.stringify(`${sel} [data-f="clear"]`)}); b.focus(); return document.activeElement === b; })()`);
+    if (!check(on, `${what}: the button takes focus`, true, on)) continue;
+    await key("Enter");
+    if (!(await waitFor(`!/grade=/.test(location.hash) && document.querySelector(${row}).hidden`, `${h} filters cleared`))) continue;
+    let got = await js(FOCUS(sel));
+    const want = { tag: "H2", text: "Filters", inPanel: true, visible: true, sheet: phone };
+    check(same(got, want), `${what}: focus on the panel's heading, on screen (not <body>)${phone ? ", the sheet still open" : ""}`, want, got);
+    await key("Tab");
+    got = await js(FOCUS(sel));
+    check(got.inPanel && got.visible, `${what}: Tab goes on inside the panel`, { inPanel: true, visible: true }, got);
+    if (!phone) continue;
+    await js(`document.querySelector(${JSON.stringify(`${sel} .fhead h2`)}).focus()`);
+    await key("Tab", 8);
+    got = await js(FOCUS(sel));
+    check(got.inPanel && got.visible && got.sheet, `${what}: Shift+Tab from the heading stays in the sheet`, { inPanel: true, visible: true, sheet: true }, got);
+    await key("Escape");
+    got = await js(FOCUS(sel));
+    check(!got.sheet, `${what}: Escape closes the sheet`, false, got.sheet);
+  }
+}
+
 async function typing(label) {
   await go("#/");
   await waitFor(`!!document.querySelector(".cards")`, "home");
@@ -687,6 +731,7 @@ try {
     await pageChecks(`${v.label} board`);
     await checkBoard("worst", v.label);
     await checkMap(v.label, v.mobile);
+    await checkClearFocus(v.label, v.mobile);
     await typing(v.label);
     await checkAlsoFailed(v.label);
     await checkIllinoisLoading(v.label);

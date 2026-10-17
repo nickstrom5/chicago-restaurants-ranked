@@ -709,8 +709,8 @@ function reader(c) {
   };
 }
 const pick = (list, i) => (i != null && i >= 0 && i < list.length ? list[i] : null);
-/** Only http(s) websites become a link. The app takes any URL(string:); the data only ever has https, and a page link must
- *  never carry another scheme (javascript:). */
+/** Only http(s) websites become a link. The app takes any URL(string:); the data has both http and https, and a page link
+ *  must never carry another scheme (javascript:, data:). */
 function webURL(s) {
   if (s == null || !/^https?:\/\//i.test(s)) return null;
   try { return new URL(s).protocol.startsWith("http") ? s : null; } catch { return null; }

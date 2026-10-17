@@ -63,6 +63,8 @@
  ]
 }
 </script>
+<!-- app.js imports logic.js: fetch both at once, not one after the other -->
+<link rel="modulepreload" href="logic.js">
 <script type="module" src="app.js"></script>
 </head>
 <body>

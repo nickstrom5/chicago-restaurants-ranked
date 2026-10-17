@@ -123,7 +123,7 @@ h1, h2 { color: var(--ink); }
 .scale { background: var(--sky); border-radius: 18px; padding: 18px; }
 .scale h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
 .scale ol { list-style: none; margin: 0 0 10px; padding: 0; display: flex; gap: 8px; }
-.scale li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); flex: 1; }
+.scale li { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); flex: 1; min-width: 0; white-space: nowrap; }   /* an end label wider than its chip ("Highest") overhangs its column, so the five stay even on a 320 px phone */
 .scale .g { width: 40px; height: 40px; font-size: 25px; border-radius: 10px; }
 .scale p { margin: 0; font-size: 13.5px; color: var(--ink2); }
 .cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
@@ -215,7 +215,7 @@ h1, h2 { color: var(--ink); }
 .fgrades .g { width: 36px; height: 36px; font-size: 22px; border-radius: 9px; }
 .fgrades button[aria-pressed="true"] .g { box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--ink); }
 .fgrades button[aria-pressed="true"]::after { content: "✓"; position: absolute; top: -3px; right: -3px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px var(--white); }
-.fsel { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--white); color: var(--ink); font-size: 15px; }
+.fsel { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 10px; background: var(--white); color: var(--ink); font-size: 16px; }   /* 16px: iPhone Safari zooms the page into a smaller select */
 .fchecks { display: grid; gap: 2px; }
 .fchecks label { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; padding: 7px 0; cursor: pointer; }
 .fchecks input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--blue); flex: 0 0 auto; }

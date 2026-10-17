@@ -77,9 +77,17 @@ Do these once the site is live.
   same URL and verify with the `msvalidate.01` meta tag or a `BingSiteAuth.xml` file in `docs/`. Submit the same sitemap,
   and use URL Submission for the home page and guides.
 - **Smart App Banner and store buttons:** see §5, "Release checklist". The Apple ID is 6816931379.
-- **Validate:** search.google.com/test/rich-results on the home page (FAQ, software app) and on a guide (Article,
-  Breadcrumb); validator.schema.org for the full graph; paste the home page URL into a link-preview checker
-  (opengraph.xyz, or send it to yourself in iMessage) and check `og.png` shows.
+- **Validate:** search.google.com/test/rich-results on a guide (Article, Breadcrumb); validator.schema.org for the full
+  graph, home page included; paste the home page URL into a link-preview checker (opengraph.xyz, or send it to yourself
+  in iMessage) and check `og.png` shows. Two Google results to expect, not to fix:
+  - The `FAQPage` JSON-LD on `index.html` and `support.html` earns no Google rich result: Google stopped showing FAQ
+    results on 7 May 2026 (developers.google.com/search/updates, "Deprecating the FAQ rich result feature"). It stays,
+    because the visible FAQ and its JSON-LD must match word for word (§3, `verify.py`) and other search engines and
+    tools still read it.
+  - The Rich Results Test and Search Console's "Software apps" report mark the home page's `MobileApplication` and
+    `explore/`'s `WebApplication` invalid for a missing `aggregateRating` or `review` (Google requires one of them for a
+    software-app result). That is expected. Never "fix" it by adding a rating or review (next point; S5 in
+    `chi-eats/ios/playbook/app-review-risk.md`); `verify.py` fails any page that has one.
 - **Never add `aggregateRating` or review markup.** There are none, and the app deliberately carries no ratings or reviews.
 - Bump `<lastmod>` in `docs/sitemap.xml` whenever a page's content changes (the weekly publish does it for the pages whose
   `data-stat` spans change and for the data pages), then re-request indexing for it. A guide's Article `dateModified` moves
@@ -299,7 +307,8 @@ Restaurant Grades & Rankings, State by State"), so every footer's "Part of Eats 
 iPad · No ads · No account" under "Chicago restaurants, graded A–F and mapped", though the app can't be installed yet
 (SEO8-04). It stays until launch unless Nick decides otherwise (the lowest-risk choice): the 7 root pages' and `404.html`'s `og:image:alt` / `twitter:image:alt` ("Free for iPhone and iPad, no
 ads, no account.") and the home hero's kicker (`index.html`, "Free for iPhone and iPad", above the "Coming soon to the App
-Store" badge) say the same, and only the home page's `<head>` title and description say "coming soon". If Nick wants it
+Store" badge) say the same, and only the home page's `<head>` description (and its `og:` and `twitter:` copies) says
+"coming soon"; its title doesn't mention the app. If Nick wants it
 changed before launch, change all of these together: the `sub` line of `chi-eats/ios/scripts/make-brand.swift` (386),
 those alt texts, and the hero kicker; then add a step below to restore them. `make-brand.swift` also writes the app's
 `AppIcon-1024.png` and `HotDog.png`, and iOS changes are parked, so render to a temporary docs folder (its docs
@@ -316,8 +325,11 @@ App Store" buttons and the commented-out banner as they are. Once Apple approves
 2. In `docs/store.js` (the home page loads it at the bottom), set
    `var APP_STORE_URL = "https://apps.apple.com/app/id6816931379";`. Every `data-store-btn` button then links to the App
    Store and reads "Download on the App Store", and goes back to the solid button style (until then it is a quiet badge).
-3. Restore the "Free iPhone and iPad app" wording in `docs/index.html`'s title and description (`<title>`, `description`
-   and their `og:` and `twitter:` copies say "app coming soon" until launch); keep verify.py's 50–60 and 140–160 characters.
+3. In `docs/index.html`'s `description` and its `og:description` and `twitter:description` copies, replace "iPhone and
+   iPad app coming soon." with words saying the free app is out (for example "Free app for iPhone and iPad.", which keeps the description at 141 characters); keep
+   verify.py's 140–160 characters. The `<title>` ("Chicago Restaurants: Ranked | Inspections & A–F Grades") and its
+   `og:`/`twitter:` copies don't mention the app (since 9e02346), so leave them. Don't paste back the description from
+   before 9e02346: its bare "A–F health grades" fails verify.py.
 4. Add `"downloadUrl"` and `"installUrl"`, both `https://apps.apple.com/app/id6816931379`, to the `MobileApplication`
    JSON-LD in `docs/index.html`, and add the App Store link to `README.md`.
 5. Open `https://apps.apple.com/app/id6816931379` in a browser and check it shows Chicago Restaurants: Ranked.

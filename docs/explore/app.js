@@ -554,9 +554,10 @@ function bindFilters(panel, getF, onChange, onClose) {
     if (e.key !== "Tab") return;          // a sheet keeps Tab inside it until it's closed
     const els = [...panel.querySelectorAll("button, select, input")].filter((x) => x.offsetParent !== null && !x.disabled);
     if (!els.length) return;
-    const first = els[0], last = els[els.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    // i < 0: focus is on the panel's heading (after Clear all filters), which sits before the first control
+    const i = els.indexOf(document.activeElement), first = els[0], last = els[els.length - 1];
+    if (e.shiftKey && i <= 0) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && i === els.length - 1) { e.preventDefault(); first.focus(); }
   });
   panel.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-f]");
@@ -588,8 +589,17 @@ function syncFilters(panel, f) {
   const gr = panel.querySelector(".fgrades"); if (gr) gr.classList.toggle("some", f.grades.size > 0);
   const set = (k, v) => { const el = panel.querySelector(`[data-f="${k}"]`); if (el) { if (el.type === "checkbox") el.checked = !!v; else el.value = v || ""; } };
   set("hood", f.hood); set("town", f.city); set("cuisine", f.cuisine); set("nochains", f.hideChains); set("liquor", f.liquor); set("dinein", f.dineIn); set("venues", f.includeVenues);
-  const cr = panel.querySelector("[data-clearrow]"); if (cr) cr.hidden = L.activeCount(f) === 0;
+  const cr = panel.querySelector("[data-clearrow]");
+  if (cr) {
+    const hide = L.activeCount(f) === 0;
+    // Clear all filters hides its own row: moved first, focus stays in the panel (and in a phone's sheet, with its Escape and
+    // Tab handling) instead of dropping to <body>
+    if (hide && !cr.hidden && cr.contains(document.activeElement)) focusPanelHead(panel);
+    cr.hidden = hide;
+  }
 }
+/** Focus on a filters panel's "Filters" heading: still on screen whatever the panel shows; Tab goes on to its first control. */
+function focusPanelHead(panel) { const h = panel && panel.querySelector(".fhead h2"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); } }
 const filterButton = (f, open) => `<button class="btn small" type="button" data-toggle-filters aria-expanded="${open}">${icon("filter")}<span>${L.activeCount(f) ? `Filters (${L.activeCount(f)})` : "Filters"}</span></button>`;
 /** Skip to filters: on a wide screen the filters come after the list in Tab order (placeSide), up to 100 rows later, so a
  *  link just before the list (shown when it has focus) goes to the filters' heading; Tab then goes on to the first filter. */
@@ -621,7 +631,7 @@ function viewHome(view, route) {
         <p class="lede">Nearly every restaurant, café and tavern the City of Chicago inspects, graded and ranked${ilN != null && towns != null ? `, plus ${n(ilN)} restaurants in ${n(towns)} more Illinois towns` : ", plus restaurants across the rest of Illinois"}.</p>
       </div>
       <aside class="scale" aria-labelledby="scale-h"><h2 id="scale-h">Our grade</h2>
-        <ol>${L.GRADES_ORDER.map((g) => `<li>${gradeChip(g)}${{ A: "<span>Best</span>", F: "<span>Worst</span>" }[g] || ""}</li>`).join("")}</ol>
+        <ol>${L.GRADES_ORDER.map((g) => `<li>${gradeChip(g)}${{ A: "<span>Highest</span>", F: "<span>Lowest</span>" }[g] || ""}</li>`).join("")}</ol>
         <p><span class="long">Our 0–100 score and A–F grade, calculated from City of Chicago inspection records since January 2023. Not official City grades: the City reports Pass, Pass w/ Conditions or Fail.</span><span class="short">Our grades from City inspection records, not official City grades.</span> <a href="#/about">How it works</a></p>
       </aside>
     </div>
@@ -1172,7 +1182,7 @@ function viewAbout(view) {
       <p class="fine">Data used: Food Inspections (data.cityofchicago.org, dataset 4ijn-s7e5) and Business Licenses (datasets r5kz-chrr and uupf-x98q)${through ? `, records through ${esc(through)}` : ""}.</p>
       <blockquote>About the inspection data, from the City’s Food Inspections dataset: “Attempts have been made to minimize any and all duplicate inspection reports. However, the dataset may still contain such duplicates and the appropriate precautions should be exercised when viewing or analyzing these data. The result of the inspections (pass, pass with conditions or fail) as well as the violations noted are based on the findings identified and reported by the inspector at the time of the inspection, and may not reflect the findings noted at other times.”</blockquote></section>
     <section><h2>Data updates</h2>
-      <p>${through ? `City records through ${esc(through)}. ` : ""}About once a week we rebuild the data from the City’s newest public records and publish it on this site; the iPhone app and this page read the same files. Your browser downloads them from this site, and the request carries nothing about you.</p></section>
+      <p>${through ? `City records through ${esc(through)}. ` : ""}About once a week we rebuild the data from the City’s newest public records and publish it on this site; the iPhone app and this page read the same files. Your browser downloads them from this site. The requests carry no location, cookies or identifiers, and nothing about which places you view, search for or save. Like any web request, they include standard technical details, such as your IP address and your browser’s name and version, which GitHub Pages, our host, receives. We don’t.</p></section>
     <section><h2>Cook County Assessor</h2>
       <p class="fine">Property values are estimates for the whole property at the address. Each one is the Cook County Assessor’s 2025 assessed value, as certified by the Cook County Board of Review, divided by the Assessor’s level of assessment for its property class. The source is Cook County Open Data (datacatalog.cookcountyil.gov). These are not sale prices or the value of the restaurant business, and they have been modified from the original source. Cook County makes no warranty as to the data’s accuracy, completeness or timeliness, and does not endorse this app.</p></section>
     <section><h2>Overture Maps Foundation</h2>
@@ -1297,7 +1307,8 @@ function viewMap(view, route) {
     const a = document.activeElement, key = a && a.dataset ? [a.dataset.f, a.dataset.v] : null;
     state.mapSel = null; state.mapStack = null; replaceHash(mapHash(scope, g)); render({ keepFocus: true });
     const again = key && key[0] ? $(`#mpanel [data-f="${key[0]}"]${key[1] ? `[data-v="${key[1]}"]` : ""}`) : null;
-    if (again) again.focus(); else { const b = $("#mpanel [data-f]"); if (b) b.focus(); }
+    // the same control in the new panel, unless it's gone from view (Clear all filters hides its row once nothing is set)
+    if (again && again.offsetParent !== null) again.focus(); else focusPanelHead($("#mpanel"));
   }, () => { state.filtersOpen = false; panel.hidden = true; const b = view.querySelector("[data-toggle-filters]"); b.setAttribute("aria-expanded", "false"); b.focus(); });
   view.querySelector("[data-toggle-filters]").onclick = (e) => {
     state.filtersOpen = !state.filtersOpen; panel.hidden = !state.filtersOpen; e.currentTarget.setAttribute("aria-expanded", String(state.filtersOpen)); syncSheet();
