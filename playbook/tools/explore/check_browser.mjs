@@ -163,7 +163,7 @@ const paramsOf = (f, scope) => {
   if (f.city) sp.set("town", f.city);
   return sp;
 };
-const anyFilter = (f) => f.sides.length || f.hood || f.grades.length || f.cuisine || f.liquor || f.dineIn || f.hideChains || f.includeVenues || f.city;
+const anyFilter = (f) => f.sides.length || f.hood || f.grades.length || f.cuisine || f.liquor || f.dineIn || f.hideChains || f.includeVenues || f.city || f.bib;
 
 // ------------------------------------------------------------------------------------------------ the checks
 const CLOSEST_NOTE = "Closest match, not an exact match";
@@ -552,6 +552,23 @@ async function checkBoard(id, label) {
   }
 }
 
+/** The Filters panel's Bib Gourmand box: a link with bib=1 shows the app's Bib-only list, and unticking it brings the board back. */
+async function checkBib(id, label) {
+  const want = O.boards[id], on = want.lists.find((l) => l.filters.bib && !anyFilter({ ...l.filters, bib: false })), off = want.lists[0];
+  if (!on) { check(false, `${label} ${id}: the oracle has no Bib Gourmand list`, "a list", null); return; }
+  await go(`#/board/${id}?bib=1`);
+  if (!(await waitFor(`document.querySelectorAll("#blist a.rrow").length > 0`, `board ${id} bib`))) return;
+  const ids = () => js(`[...document.querySelectorAll("#blist a.rrow")].map((a) => decodeURIComponent(a.getAttribute("href").replace("#/place/", "")))`);
+  const got = await ids();
+  check(on.count > 0 && same(got, on.ids.slice(0, 100)), `${label} ${id} Bib Gourmand: rows in order`, on.ids.slice(0, 100), got);
+  const box = await js(`(() => { const b = document.querySelector('#bpanel input[data-f="bib"]'); return b && { checked: b.checked, label: b.parentElement.textContent.trim() }; })()`);
+  check(box && box.checked && box.label === "Bib Gourmand", `${label} ${id}: a ticked "Bib Gourmand" box`, { checked: true, label: "Bib Gourmand" }, box);
+  await js(`(() => { const b = document.querySelector('#bpanel input[data-f="bib"]'); b.checked = false; b.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+  await waitFor(`document.querySelectorAll("#blist a.rrow").length > ${Math.min(on.count, 100)}`, `board ${id} unticked`);
+  const back = await ids();
+  check(same(back, off.ids.slice(0, 100)), `${label} ${id}: unticked, the whole board is back`, off.ids.slice(0, 100), back);
+}
+
 async function checkHome(label) {
   await go("#/");
   if (!(await waitFor(`!!document.querySelector(".cards")`, "home"))) return;
@@ -730,6 +747,7 @@ try {
     await shot(`${v.label}-board-failed-latest`);
     await pageChecks(`${v.label} board`);
     await checkBoard("worst", v.label);
+    await checkBib("honors", v.label);
     await checkMap(v.label, v.mobile);
     await checkClearFocus(v.label, v.mobile);
     await typing(v.label);

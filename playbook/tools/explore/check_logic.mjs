@@ -49,7 +49,7 @@ function checkList(what, swift, web) {
 }
 const utf8 = (s) => Buffer.byteLength(s, "utf8");
 const toFilters = (f) => L.newFilters({ sides: f.sides, hood: f.hood, cuisine: f.cuisine, grades: f.grades, liquor: f.liquor, dineIn: f.dineIn,
-  hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city });
+  hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city, bib: f.bib });
 const fname = (f) => {
   const on = Object.entries(f).filter(([, v]) => (Array.isArray(v) ? v.length : v)).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join("+") : v}`);
   return on.length ? ` [${on.join(", ")}]` : "";
@@ -93,7 +93,7 @@ function compare(name, files) {
   section = `${name}/meta`;
   const meta = { recordsThrough: data.recordsThrough, failsFrom: data.asOf.failsFrom, hoods: data.hoods, sides: data.sides, cuisines: data.cuisines,
     cities: data.cities, overtureRelease: data.overtureRelease, rows: [files.chicago.rows.length, files.illinois.rows.length],
-    restaurantCount: data.restaurantCount, illinoisRestaurantCount: data.illinoisRestaurantCount, recordsYear: data.recordsYear };
+    restaurantCount: data.restaurantCount, illinoisRestaurantCount: data.illinoisRestaurantCount, bibCount: data.bibCount, recordsYear: data.recordsYear };
   for (const k of Object.keys(O.meta)) check(same(O.meta[k], meta[k]), k, O.meta[k], meta[k]);
 
   // every place, in list order, every field

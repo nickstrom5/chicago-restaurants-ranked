@@ -400,16 +400,17 @@ export function nameMatch(p, q) {
 // ------------------------------------------------------------------------------------------------ Filters (Board.swift)
 export function newFilters(o = {}) {
   return { sides: new Set(o.sides || []), hood: o.hood ?? null, cuisine: o.cuisine ?? null, grades: new Set(o.grades || []),
-    liquor: !!o.liquor, dineIn: !!o.dineIn, hideChains: !!o.hideChains, includeVenues: !!o.includeVenues, city: o.city ?? null };
+    liquor: !!o.liquor, dineIn: !!o.dineIn, hideChains: !!o.hideChains, includeVenues: !!o.includeVenues, city: o.city ?? null, bib: !!o.bib };
 }
 export const activeCount = (f) => f.sides.size + (f.hood == null ? 0 : 1) + (f.cuisine == null ? 0 : 1) + f.grades.size + (f.liquor ? 1 : 0)
-  + (f.dineIn ? 1 : 0) + (f.hideChains ? 1 : 0) + (f.includeVenues ? 1 : 0) + (f.city == null ? 0 : 1);
+  + (f.dineIn ? 1 : 0) + (f.hideChains ? 1 : 0) + (f.includeVenues ? 1 : 0) + (f.city == null ? 0 : 1) + (f.bib ? 1 : 0);
 /** Filters that come from City records, so they leave out the rest of Illinois (Finder.near, SearchTab.caption). */
 export const chicagoOnly = (f) => f.grades.size > 0 || f.sides.size > 0 || f.hood != null || f.liquor || f.dineIn;
 export function passes(f, p) {
   if (!f.includeVenues && p.venue) return false;
   if (f.hideChains && p.isChain) return false;
   if (f.cuisine != null && p.cuisine !== f.cuisine) return false;
+  if (f.bib && !p.bib) return false;
   if (p.isChicago) {
     if (f.sides.size && !f.sides.has(p.side ?? "")) return false;
     if (f.hood != null && p.hood !== f.hood) return false;
@@ -422,7 +423,7 @@ export function passes(f, p) {
 export function filtersEqual(a, b) {
   const set = (x, y) => x.size === y.size && [...x].every((v) => y.has(v));
   return set(a.sides, b.sides) && a.hood === b.hood && a.cuisine === b.cuisine && set(a.grades, b.grades) && a.liquor === b.liquor
-    && a.dineIn === b.dineIn && a.hideChains === b.hideChains && a.includeVenues === b.includeVenues && a.city === b.city;
+    && a.dineIn === b.dineIn && a.hideChains === b.hideChains && a.includeVenues === b.includeVenues && a.city === b.city && a.bib === b.bib;
 }
 
 // ------------------------------------------------------------------------------------------------ Fmt (Place.swift)
@@ -892,6 +893,7 @@ export function combine(chi, il) {
   data.illinois.forEach((p) => data.byId.set(p.id, p));
   data.restaurantCount = data.chicago.reduce((n, p) => n + (p.venue ? 0 : 1), 0);
   data.illinoisRestaurantCount = data.illinois.reduce((n, p) => n + (p.venue ? 0 : 1), 0);
+  data.bibCount = data.chicago.reduce((n, p) => n + (p.bib ? 1 : 0), 0);     // DataStore.bibCount: the Filters switch shows only when > 0
   return data;
 }
 

@@ -238,6 +238,7 @@ function filtersFromParams(sp, scope) {
   if (cuisine && (ilPending || (D() && D().cuisines.includes(cuisine)))) o.cuisine = cuisine;
   if (sp.get("nochains") === "1") o.hideChains = true;
   if (sp.get("venues") === "1") o.includeVenues = true;
+  if (sp.get("bib") === "1") o.bib = true;
   return L.newFilters(o);
 }
 function filtersToParams(f, sp = new URLSearchParams()) {
@@ -250,6 +251,7 @@ function filtersToParams(f, sp = new URLSearchParams()) {
   if (f.hideChains) sp.set("nochains", "1");
   if (f.includeVenues) sp.set("venues", "1");
   if (f.city) sp.set("town", f.city);
+  if (f.bib) sp.set("bib", "1");
   return sp;
 }
 const filtersKey = (f) => filtersToParams(f).toString();
@@ -505,7 +507,10 @@ function filtersPanel(scope, f, opts = {}) {
   html += scope === "chicago"
     ? check("liquor", "Serves alcohol", f.liquor) + check("dinein", "Has a dining room", f.dineIn) + check("venues", "Include airports, stadiums, cafeterias &amp; other non-restaurants", f.includeVenues)
     : check("venues", "Include gas stations, grocery counters &amp; other non-restaurants", f.includeVenues);
-  html += `</div></fieldset></div>`;
+  html += `</div></fieldset>`;
+  // a fact from the MICHELIN Guide, not a rating (FiltersView); only where this scope has Bib Gourmand places
+  if (scope === "chicago" && d.bibCount > 0) html += `<fieldset class="fgroup"><legend>MICHELIN Guide</legend><div class="fchecks">${check("bib", "Bib Gourmand", f.bib)}</div></fieldset>`;
+  html += `</div>`;
   if (opts.near) html += `<p class="fnote">Grade, side, neighborhood, alcohol and dining-room filters come from City of Chicago records, so they show Chicago places only.</p>`;
   html += `<p class="fnote"${L.activeCount(f) ? "" : " hidden"} data-clearrow><button class="btn small" type="button" data-f="clear">Clear all filters</button></p>`;
   // on a phone the panel is a sheet over the list: this shows what the filters leave and closes it
@@ -545,7 +550,7 @@ function fitSide() {
 
 /** Wires a filters panel: each change calls onChange(newFilters). */
 function bindFilters(panel, getF, onChange, onClose) {
-  const edit = (fn) => { const f = getF(); const g = L.newFilters({ sides: [...f.sides], hood: f.hood, cuisine: f.cuisine, grades: [...f.grades], liquor: f.liquor, dineIn: f.dineIn, hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city }); fn(g); onChange(g); syncFilters(panel, g); };
+  const edit = (fn) => { const f = getF(); const g = L.newFilters({ sides: [...f.sides], hood: f.hood, cuisine: f.cuisine, grades: [...f.grades], liquor: f.liquor, dineIn: f.dineIn, hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city, bib: f.bib }); fn(g); onChange(g); syncFilters(panel, g); };
   const close = () => { onClose(); syncSheet(); };
   state.closeSheet = close;
   panel.addEventListener("keydown", (e) => {
@@ -580,6 +585,7 @@ function bindFilters(panel, getF, onChange, onClose) {
       if (k === "liquor") g.liquor = el.checked;
       if (k === "dinein") g.dineIn = el.checked;
       if (k === "venues") g.includeVenues = el.checked;
+      if (k === "bib") g.bib = el.checked;
     });
   });
 }
@@ -588,7 +594,7 @@ function syncFilters(panel, f) {
   panel.querySelectorAll('button[data-f="grade"]').forEach((b) => b.setAttribute("aria-pressed", String(f.grades.has(b.dataset.v))));
   const gr = panel.querySelector(".fgrades"); if (gr) gr.classList.toggle("some", f.grades.size > 0);
   const set = (k, v) => { const el = panel.querySelector(`[data-f="${k}"]`); if (el) { if (el.type === "checkbox") el.checked = !!v; else el.value = v || ""; } };
-  set("hood", f.hood); set("town", f.city); set("cuisine", f.cuisine); set("nochains", f.hideChains); set("liquor", f.liquor); set("dinein", f.dineIn); set("venues", f.includeVenues);
+  set("hood", f.hood); set("town", f.city); set("cuisine", f.cuisine); set("nochains", f.hideChains); set("liquor", f.liquor); set("dinein", f.dineIn); set("venues", f.includeVenues); set("bib", f.bib);
   const cr = panel.querySelector("[data-clearrow]");
   if (cr) {
     const hide = L.activeCount(f) === 0;
