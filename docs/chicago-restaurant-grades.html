@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chicago Restaurant Grades A–F Explained | Chi Ranked</title>
-<meta name="description" content="How the Chicago Restaurants: Ranked app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.">
+<title>Chicago Restaurant Rankings: How Scores Work | Chi Ranked</title>
+<meta name="description" content="How the Chicago Restaurants: Ranked app scores Chicago restaurants from City inspections, years open and honors: the weights, the caps and the limits.">
 <link rel="canonical" href="https://chicago.eatsranked.com/chicago-restaurant-grades.html">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="theme-color" content="#0E3386">
 <meta name="apple-itunes-app" content="app-id=6816931379">
-<meta property="og:title" content="Chicago Restaurant Grades A–F Explained | Chi Ranked">
-<meta property="og:description" content="How the Chicago Restaurants: Ranked app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.">
+<meta property="og:title" content="Chicago Restaurant Rankings: How Scores Work | Chi Ranked">
+<meta property="og:description" content="How the Chicago Restaurants: Ranked app scores Chicago restaurants from City inspections, years open and honors: the weights, the caps and the limits.">
 <meta property="og:url" content="https://chicago.eatsranked.com/chicago-restaurant-grades.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Chicago Restaurants: Ranked">
@@ -20,12 +20,12 @@
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped. Free for iPhone and iPad, no ads, no account.">
+<meta property="og:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, ranked and mapped. Free for iPhone and iPad, no ads, no account.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Chicago Restaurant Grades A–F Explained | Chi Ranked">
-<meta name="twitter:description" content="How the Chicago Restaurants: Ranked app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.">
+<meta name="twitter:title" content="Chicago Restaurant Rankings: How Scores Work | Chi Ranked">
+<meta name="twitter:description" content="How the Chicago Restaurants: Ranked app scores Chicago restaurants from City inspections, years open and honors: the weights, the caps and the limits.">
 <meta name="twitter:image" content="https://chicago.eatsranked.com/og.png">
-<meta name="twitter:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped. Free for iPhone and iPad, no ads, no account.">
+<meta name="twitter:image:alt" content="Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, ranked and mapped. Free for iPhone and iPad, no ads, no account.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
@@ -75,6 +75,8 @@
   @media (forced-colors: active) { .btn { border: 1px solid ButtonText; } }
   /* grade chips */
   .g { display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: .36em; font-family: var(--display); font-stretch: condensed; font-weight: 800; line-height: 1; }
+  .gs { font-variant-numeric: tabular-nums; font-size: .82em; } .s90 { background: #0B5E3B; color: #fff; } .s75 { background: #1F7A4D; color: #fff; }
+  .s50 { background: #7DB88A; color: #0B1D45; } .s25 { background: #BEDCC3; color: #0B1D45; } .s0 { background: #E4EFE6; color: #0B1D45; box-shadow: inset 0 0 0 1px #DAE2F0; }
   .gA { background: #12733A; color: #fff; } .gB { background: #4B7A1B; color: #fff; } .gC { background: #F2B01E; color: #2B1D00; }
   .gD { background: #E8804F; color: #2B1000; } .gF { background: #C1302F; color: #fff; }
   /* footer */
@@ -131,8 +133,8 @@
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "What our A–F Chicago restaurant grades mean",
-  "description": "How the Chicago Restaurants: Ranked app turns City of Chicago inspection records into a 0–100 score and an A–F grade: what counts, the cutoffs, the limits.",
+  "headline": "How our Ranked score ranks Chicago restaurants",
+  "description": "How the Chicago Restaurants: Ranked app scores Chicago restaurants from City inspections, years open and honors: the weights, the caps and the limits.",
   "image": {
     "@type": "ImageObject",
     "url": "https://chicago.eatsranked.com/og.png",
@@ -140,7 +142,7 @@
     "height": 630
   },
   "datePublished": "2026-09-26",
-  "dateModified": "2026-10-12",
+  "dateModified": "2026-11-05",
   "inLanguage": "en",
   "author": {
     "@type": "Person",
@@ -183,7 +185,7 @@
     {
       "@type": "ListItem",
       "position": 2,
-      "name": "What the A–F grades mean",
+      "name": "How we rank",
       "item": "https://chicago.eatsranked.com/chicago-restaurant-grades.html"
     }
   ]
@@ -197,7 +199,7 @@
     <a class="logo" href="./" aria-label="Chicago Restaurants: Ranked home"><img src="favicon.svg" width="32" height="32" alt="Chi Ranked app icon" decoding="async"><span>Chicago Restaurants: <b>Ranked</b></span></a>
     <nav aria-label="Primary">
       <a href="./#how">How it works</a>
-      <a href="chicago-restaurant-grades.html">Grades</a>
+      <a href="chicago-restaurant-grades.html">How we rank</a>
       <a href="look-up-chicago-restaurant-inspections.html">Look up a place</a>
       <a href="./#faq">FAQ</a>
       <a href="explore/">Search on the web</a>
@@ -206,61 +208,53 @@
 </header>
 <main id="main">
   <div class="wrap narrow doc">
-    <nav class="crumbs" aria-label="Breadcrumb"><a href="./">Chicago Restaurants: Ranked</a> › What the A–F grades mean</nav>
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="./">Chicago Restaurants: Ranked</a> › How we rank</nav>
     <article>
-      <h1>What our A–F Chicago restaurant grades mean</h1>
-      <p class="lede">Chicago’s inspection records don’t come with a letter grade. Chicago Restaurants: Ranked adds one: a 0–100 score and an A–F grade calculated from the City’s records. Here is exactly how, and what a grade can’t tell you.</p>
-      <p class="updated">Updated 12 October 2026</p>
-
-      <div class="box red"><p><strong>This is our grade, not the City’s.</strong> The City of Chicago records each inspection as pass, pass with conditions or fail (<a href="how-chicago-restaurant-inspections-work.html">what those mean</a>). The score and letter are calculated by this app from those public records, the same way for every place. They are not issued or endorsed by the City of Chicago or its Department of Public Health.</p></div>
-
-      <h2>Which inspections count</h2>
-      <p>Every inspection since January 1, 2023 that ended in pass, pass with conditions or fail. Visits recorded as Out of Business, No Entry, Not Ready or Business Not Located don’t count, because nothing was graded.</p>
-
-      <h2>What lowers the score</h2>
-      <p>Each place starts at 100. Points come off for six things in its record:</p>
+      <h1>How our Ranked score ranks Chicago restaurants</h1>
+      <p class="lede">An inspection says nothing about how long a place has fed its neighborhood or what the Michelin Guide thinks of it. Chicago Restaurants: Ranked blends all three into one 0–100 Ranked score. Here is exactly how, and what a score can’t tell you.</p>
+      <p class="updated">Updated 5 November 2026</p>
+      <div class="box red"><p><strong>This is our score, not the City’s.</strong> The City of Chicago records each inspection as pass, pass with conditions or fail (<a href="how-chicago-restaurant-inspections-work.html">what those mean</a>) and issues no grades or scores. The Ranked score is calculated by this app from public records, the same way for every place, and is not endorsed by the City or its Department of Public Health.</p></div>
+      <h2>Three parts</h2>
       <div class="tablewrap"><table>
-        <caption>Deductions from the 100-point score</caption>
+        <caption>What goes into the Ranked score</caption>
+        <thead><tr><th scope="col">Part</th><th scope="col">Weight</th><th scope="col">From</th></tr></thead>
+        <tbody>
+          <tr><td>Inspection record</td><td>40%</td><td>Our 0–100 inspection score (below), with recent visits counting more</td></tr>
+          <tr><td>Years open</td><td>30%</td><td>Years at the address, from verified histories or the earliest City license or inspection record. A chain store’s (5+ Chicago locations) count half</td></tr>
+          <tr><td>Honors</td><td>30%</td><td>Michelin stars and Bib Gourmand, James Beard awards and America’s Classics, our hand-checked list of Chicago icons, other hand-checked honors and published sales; the strongest counts most</td></tr>
+        </tbody>
+      </table></div>
+      <p>The inspection record and years open are each compared with other Chicago restaurants, and a part we don’t have counts as average. Most places have no honors, so for them the score comes down to inspections (57%) and years open (43%).</p>
+      <h2>From the blend to a score</h2>
+      <p>The score is where a place’s blend falls among Chicago restaurants: <strong>85 means it ranks above 85% of them</strong>, so about a fifth score 80 or more. Each place page also shows its position, such as “#212 of 7,785 Chicago restaurants”. Colors run from deep green (90 and up) to pale green (under 25).</p>
+      <h2>Inspections still count</h2>
+      <p>Inspections are the biggest single part, and they cap the score: <strong>a failed latest inspection holds a place to 50</strong>, and <strong>a failed inspection or pest citation in the past year holds it to 80</strong>. Inspections alone never rank a place: one with no opening year and no honor isn’t ranked. The Cleanest Kitchens, Lowest inspection scores, Failed latest and Pest citations lists rank by inspections alone.</p>
+      <h2>The inspection score</h2>
+      <p>Every inspection since January 1, 2023 that ended in pass, pass with conditions or fail counts. Each place starts at 100, and points come off for six things:</p>
+      <div class="tablewrap"><table>
+        <caption>Deductions from the 100-point inspection score</caption>
         <thead><tr><th scope="col">Factor</th><th scope="col">How it is measured</th><th scope="col">Most points off</th></tr></thead>
         <tbody>
           <tr><td>Failed inspections</td><td>Share of inspections that failed</td><td>40</td></tr>
           <tr><td>All violations</td><td>3 points per violation per visit, on average, counting up to 10</td><td>30</td></tr>
-          <tr><td>Pest citations</td><td>Share of inspections whose item 38 citation (“Insects, rodents, &amp; animals not present”) describes rodents, insects or signs of them. Door gaps and missing pest-control logs don’t count, and a citation repeated at the follow-up visit (a re-inspection, or within 30 days) counts once</td><td>25</td></tr>
+          <tr><td>Pest citations</td><td>Share of inspections whose item 38 citation describes rodents, insects or signs of them. Door gaps and missing pest-control logs don’t count, and a citation repeated at the follow-up visit counts once</td><td>25</td></tr>
           <tr><td>Serious food-safety violations</td><td>8 points per violation per visit from items 1 to 29 on the City’s report, on average, counting up to 3</td><td>24</td></tr>
           <tr><td>Last visit failed</td><td>The most recent inspection was a fail</td><td>8</td></tr>
           <tr><td>Passes with conditions</td><td>Share of inspections that passed with conditions</td><td>6</td></tr>
         </tbody>
       </table></div>
-      <p>Items 1 to 29 on the City’s current report cover things like a certified food manager on site, handwashing, safe food sources, cooking and holding temperatures, date marking and toxic chemicals. The score can’t go below 0.</p>
-
-      <h2>Few inspections? Pulled toward the average</h2>
-      <p>A place with one or two inspections can look perfect or terrible by luck. So each score is blended with the city average, as if every place also had two average inspections: <strong>(inspections × its own score + 2 × city average) ÷ (inspections + 2)</strong>. With one inspection, a place’s own record is a third of its score. With ten, it is five-sixths.</p>
-
-      <h2>From score to letter</h2>
-      <div class="tablewrap"><table>
-        <caption>Grade cutoffs</caption>
-        <thead><tr><th scope="col">Grade</th><th scope="col">Score</th><th scope="col">Extra rule</th></tr></thead>
-        <tbody>
-          <tr><td><span class="g gA" role="img" aria-label="A">A</span></td><td>75–100</td><td>No failed inspections since 2023; otherwise B at best</td></tr>
-          <tr><td><span class="g gB" role="img" aria-label="B">B</span></td><td>66–74</td><td></td></tr>
-          <tr><td><span class="g gC" role="img" aria-label="C">C</span></td><td>57–65</td><td></td></tr>
-          <tr><td><span class="g gD" role="img" aria-label="D">D</span></td><td>47–56</td><td></td></tr>
-          <tr><td><span class="g gF" role="img" aria-label="F">F</span></td><td>0–46</td><td>At least one failed inspection or pest citation; otherwise D</td></tr>
-        </tbody>
-      </table></div>
-      <p>A place with no qualifying inspection since January 2023 gets no grade. The Cleanest and Lowest inspection scores boards include only places with at least two inspections, so a single visit can’t put a place at the top or the bottom.</p>
-
-      <h2>What a grade can’t tell you</h2>
+      <p>Recent visits weigh more: one a year before our records date counts half as much as one on it. And because one or two visits can look perfect or terrible by luck, each inspection score is blended with the city average, as if every place also had two average inspections.</p>
+      <h2>What a score can’t tell you</h2>
       <ul>
-        <li><strong>It is a summary of the past.</strong> Inspections are snapshots of what the inspector found on the day. A grade is not a prediction and not a food safety certificate.</li>
-        <li><strong>It says nothing about taste, price or service.</strong> It only reflects inspection records.</li>
-        <li><strong>Each location stands alone.</strong> Two branches of the same chain can have very different grades.</li>
-        <li><strong>It changes as records change.</strong> A new passing inspection lifts a score once it is in the City’s data and reaches the app in a weekly data update.</li>
+        <li><strong>It summarizes public records.</strong> An inspection is a snapshot of one day. A score is not a prediction or a food safety certificate.</li>
+        <li><strong>A low score isn’t a bad inspection.</strong> A spotless place that opened last year, with no honors yet, can score in the 60s. The place page shows each part.</li>
+        <li><strong>It uses no ratings or reviews.</strong> It says nothing directly about taste, price or service.</li>
+        <li><strong>It moves.</strong> New inspections, honors and years change it in our weekly data update, and since it is a comparison, other places’ changes move it a little too.</li>
       </ul>
-      <p>To check the underlying records, every place page in the app links to the City’s official inspection records, or you can <a href="look-up-chicago-restaurant-inspections.html">look a place up on the City’s data portal</a> yourself. If a place is matched to the wrong records, please email <a href="mailto:nick@eatsranked.com">nick@eatsranked.com</a>.</p>
+      <p>Every place page in the app links to the City’s official inspection records, or you can <a href="look-up-chicago-restaurant-inspections.html">look a place up on the City’s data portal</a>. If a place is matched to the wrong records or misses an honor, please email <a href="mailto:nick@eatsranked.com">nick@eatsranked.com</a>.</p>
       <div class="cta">
-        <h2>See every grade on a map</h2>
-        <p>Chicago Restaurants: Ranked is free in your browser and on iPhone and iPad, with our A–F grades for <span data-stat="graded_floor">7,600+</span> Chicago restaurants, rankings by inspection score, and a map with grade-colored pins. No ads, no account.</p>
+        <h2>See every score on a map</h2>
+        <p>Chicago Restaurants: Ranked is free in your browser and on iPhone and iPad, with our Ranked scores for <span data-stat="graded_floor">7,600+</span> Chicago restaurants, the top-ranked list and a map. No ads, no account.</p>
         <p class="btn-row"><a class="btn alt" href="explore/#/map">Open the map</a></p>
       </div>
     </article>
@@ -273,17 +267,17 @@
       <a href="explore/">Search on the web</a>
       <a href="https://apps.apple.com/app/id6816931379" rel="noopener">Get the iPhone and iPad app</a>
       <a href="lists/">Chicago restaurant rankings</a>
-      <a href="neighborhoods/">Grades by neighborhood</a>
-      <a href="cuisines/">Grades by cuisine</a>
+      <a href="neighborhoods/">Rankings by neighborhood</a>
+      <a href="cuisines/">Rankings by cuisine</a>
       <a href="how-chicago-restaurant-inspections-work.html">How Chicago restaurant inspections work</a>
       <a href="look-up-chicago-restaurant-inspections.html">Look up a Chicago restaurant inspection</a>
-      <a href="chicago-restaurant-grades.html">What the A–F grades mean</a>
+      <a href="chicago-restaurant-grades.html">How the Ranked score works</a>
       <a href="support.html">Help &amp; support</a>
       <a href="privacy.html">Privacy policy</a>
       <a href="terms.html">Terms of use</a>
       <a href="mailto:nick@eatsranked.com">Email support</a>
     </nav>
-    <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
+    <p class="fine">Ranked scores and inspection scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
     <p class="fine">City of Chicago data disclaimer: This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one's own risk.</p>
     <p class="fine">Inspection and license records: City of Chicago Data Portal. Property values: Cook County Assessor's Office. Restaurant websites and places outside Chicago: Overture Maps Foundation (CDLA Permissive 2.0, Apache 2.0, CC0).</p>
     <p class="fine">© 2026 <a class="hub" href="https://work-with-nick.com/" rel="author noopener">Nicholas Soderstrom</a>. Made in Chicago. Part of <a class="hub" href="https://eatsranked.com/" rel="noopener">Eats Ranked</a>, restaurant apps state by state.</p>

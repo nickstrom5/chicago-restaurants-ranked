@@ -93,6 +93,11 @@ main { padding: 8px 0 64px; }
 .g { display: inline-grid; place-items: center; flex: 0 0 auto; width: 26px; height: 26px; border-radius: 6px; font-family: var(--display); font-stretch: condensed; font-weight: 900; font-size: 17px; line-height: 1; color: #fff; }
 .gA { background: var(--gA); } .gB { background: var(--gB); } .gC { background: var(--gC); color: #2B1D00; } .gD { background: var(--gD); color: #2B1000; } .gF { background: var(--gF); }
 .g.gt { width: 34px; height: 34px; flex: 0 0 34px; font-size: 21px; border-radius: 8px; }
+/* the Ranked score chip (logic.js SCORE_BANDS; app.js sets the same colors inline, the pages' CSP allows no inline styles) */
+.g.gs { font-size: 14px; font-variant-numeric: tabular-nums; } .g.gs.g100 { font-size: 12px; }
+.g.gs.gt { font-size: 17px; } .g.gs.gt.g100 { font-size: 14px; }
+.g.s90 { background: #0B5E3B; color: #fff; } .g.s75 { background: #1F7A4D; color: #fff; } .g.s50 { background: #7DB88A; color: #0B1D45; }
+.g.s25 { background: #BEDCC3; color: #0B1D45; } .g.s0 { background: #E4EFE6; color: #0B1D45; box-shadow: inset 0 0 0 1px #DAE2F0; }
 .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
 .badge { font-size: 10.5px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--sky); color: var(--ink2); white-space: nowrap; }
 .badge.red { background: var(--red); color: #fff; } .badge.blue { background: var(--blue); color: #fff; } .badge.icon { background: var(--sky2); color: var(--blue); }

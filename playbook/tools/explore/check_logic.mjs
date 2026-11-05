@@ -48,7 +48,7 @@ function checkList(what, swift, web) {
   return check(false, `${what}: first difference at #${d.at} (lengths ${d.lengths.join(" vs ")})`, d.swift, d.web);
 }
 const utf8 = (s) => Buffer.byteLength(s, "utf8");
-const toFilters = (f) => L.newFilters({ sides: f.sides, hood: f.hood, cuisine: f.cuisine, grades: f.grades, liquor: f.liquor, dineIn: f.dineIn,
+const toFilters = (f) => L.newFilters({ sides: f.sides, hood: f.hood, cuisine: f.cuisine, minRanked: f.minRanked, liquor: f.liquor, dineIn: f.dineIn,
   hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city, bib: f.bib });
 const fname = (f) => {
   const on = Object.entries(f).filter(([, v]) => (Array.isArray(v) ? v.length : v)).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join("+") : v}`);
@@ -221,8 +221,9 @@ function wording() {
     ["Views/SearchTab.swift", "These places match only some of your words, or spell them differently. Your filters may be hiding others."],
     ["Views/SearchTab.swift", "Text(\"Closest matches\")", "Closest matches"],
     ["Views/SearchTab.swift", "Search Chicago restaurants"],
-    ["Views/SearchTab.swift", "Our grades from City inspection records, not official City grades."],
-    ["Views/SearchTab.swift", "No grades outside Chicago: the City inspects only Chicago restaurants."],
+    ["Models/Board.swift", "Ranked scores are ours, from public records, not official City grades."],
+    ["Models/Board.swift", "Our Ranked score, from public records. Not an official City grade."],
+    ["Views/SearchTab.swift", "No Ranked scores outside Chicago: they're built from City of Chicago records."],
     ["Views/SearchTab.swift", "Check the spelling or try a new search."],
     ["Views/SearchTab.swift", "Your filters may be hiding places."],
     ["Views/SearchTab.swift", "Chicago places within 50 miles (your filters use City records)."],
@@ -233,15 +234,30 @@ function wording() {
     ["Views/PlaceDetailView.swift", "Last city inspection"],
     ["Views/PlaceDetailView.swift", "Last inspection in our records"],
     ["Views/PlaceDetailView.swift", "KV(\"Newer City result\"", "Newer City result"],
-    ["Views/PlaceDetailView.swift", "so it isn't in our score or grade yet."],
+    ["Views/PlaceDetailView.swift", "so it isn't in our scores yet."],
+    ["Views/PlaceDetailView.swift", "Not ranked yet: too few public records about this place (no opening year and no honors)."],
+    ["Views/PlaceDetailView.swift", "No inspections since Jan 2023: counts as average"],
+    ["Views/PlaceDetailView.swift", "Opening year unknown: counts as average"],
+    ["Views/PlaceDetailView.swift", "None on our hand-checked lists"],
+    ["Views/PlaceDetailView.swift", "a chain store, so it counts half"],
+    ["Views/PlaceDetailView.swift", "Ranked score · how it's made"],
+    ["Views/PlaceDetailView.swift", "Inspection score (recent visits count more)"],
+    ["Models/Board.swift", "puts this place in the top 1% of Chicago restaurants on the blend."],
+    ["Models/Board.swift", "means this place ranks above"],
+    ["Views/RankingsView.swift", "Inspection scores are ours, from City inspection records, not official City scores."],
+    ["Views/MapTab.swift", "our Ranked score from public records (not official)"],
     ["Views/PlaceDetailView.swift", "Also on City records as"],
     ["Views/PlaceDetailView.swift", "Report a problem with this listing"],
     ["Views/PlaceDetailView.swift", "Not in the current data"],
     ["Views/PlaceDetailView.swift", "This place isn't in the latest data update. If it's in a later one, it shows here again."],
     ["Views/HomeView.swift", "Search nearly every restaurant, café, bakery and tavern in the city"],
     ["Views/HomeView.swift", "Places whose latest City inspection failed, in the last 90 days"],
-    ["Views/HomeView.swift", "Food map & our A–F grades", "Food map &amp; our A–F grades"],
-    ["Views/HomeView.swift", "Nearly every restaurant, café and tavern the City of Chicago inspects, graded and ranked"],
+    ["Views/HomeView.swift", "Food map & our rankings", "Food map &amp; our rankings"],
+    ["Views/HomeView.swift", "Nearly every restaurant, café and tavern the City of Chicago inspects, ranked on inspections, years open and honors"],
+    ["Views/HomeView.swift", "Surprise me with a top-ranked spot"],
+    ["Views/HomeView.swift", "Ranked scores are ours, not official City grades."],
+    ["Views/SavedAndAbout.swift", "The score blends three parts, each compared with other Chicago restaurants: inspection record (40%), years open (30%) and honors (30%)."],
+    ["Views/SavedAndAbout.swift", "Inspections still cap the score: a failed latest inspection holds a place to 50, and a failed inspection or pest citation in the past year to 80."],
     ["Views/SavedAndAbout.swift", "Nearly every restaurant, bakery, café and tavern the City of Chicago inspects, ranked on public records"],
   ];
   for (const [f, s, w = s] of pairs) {      // [Swift file, its words, the web's spelling when it differs (HTML)]
@@ -256,11 +272,14 @@ function wording() {
   // Share: the place's own route (the app's PlaceShare.webLink) with PlaceShare.message's text, never a map link or a street
   // address (Messages makes a Maps card of either). The expected text is the app's own test (BoardRulesTests).
   check(swift("Views/PlaceDetailView.swift").includes(", on Chicago Restaurants: Ranked"), "PlaceShare.message no longer names the app: the web copy may be stale", "", "");
-  const goat = { name: "Girl & the Goat", addr: "809 W Randolph St", city: "Chicago", lat: 41.884, lon: -87.648, grade: "A", score: 93 };
+  const goat = { name: "Girl & the Goat", addr: "809 W Randolph St", city: "Chicago", lat: 41.884, lon: -87.648, ranked: 93, insp: 88 };
   const lines = L.shareText(goat).split("\n");
-  check(lines.length === 2 && lines[0] === "Girl & the Goat, Chicago, on Chicago Restaurants: Ranked" && lines[1].startsWith("Inspection grade A (93/100)"),
-    "shareText says what PlaceShare.message says", ["Girl & the Goat, Chicago, on Chicago Restaurants: Ranked", "Inspection grade A (93/100), …"], lines);
-  const lou = { name: "Lou's + Co", addr: "1 Main St", city: "Oak Park", lat: 41.88, lon: -87.78, grade: null, score: null };
+  check(lines.length === 2 && lines[0] === "Girl & the Goat, Chicago, on Chicago Restaurants: Ranked" && lines[1].startsWith("Ranked score 93/100")
+    && lines[1].includes("not an official city grade") && !/grade [A-F]\b|Inspection grade/.test(lines[1]),
+    "shareText says what PlaceShare.message says", ["Girl & the Goat, Chicago, on Chicago Restaurants: Ranked", "Ranked score 93/100, …"], lines);
+  check(swift("Views/PlaceDetailView.swift").includes("parts.append(\"Ranked score \\(s)/100, from public records: City of Chicago inspections and licenses, and hand-checked honors. Score by Chicago Restaurants: Ranked, not an official city grade.\")"),
+    "PlaceShare.message's score line changed: the web copy may be stale", "", "");
+  const lou = { name: "Lou's + Co", addr: "1 Main St", city: "Oak Park", lat: 41.88, lon: -87.78, ranked: null, insp: null };
   check(L.shareText(lou) === "Lou's + Co, Oak Park, on Chicago Restaurants: Ranked", "shareText outside Chicago", "Lou's + Co, Oak Park, on Chicago Restaurants: Ranked", L.shareText(lou));
   for (const p of [goat, lou]) {
     const t = L.shareText(p);

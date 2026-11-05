@@ -18,7 +18,7 @@
 // entries in sitemap.xml, keeping the rest as they are. Their lastmod is the day the data went live: the manifest's
 // "published" time as a Chicago calendar day (update_counts.py stamps the root pages with the Chicago day too), never the
 // records date, which is about a week earlier than the day the pages change. The pages' text keeps the records date ("City
-// records through"). A page for an area or cuisine with fewer than THIN graded places is still written, with robots
+// records through"). A page for an area or cuisine with fewer than THIN ranked places is still written, with robots
 // noindex,follow, and left out of the sitemap.
 // Deterministic: the same data and logic write the same bytes, so a second run changes nothing (a rerun of the publish with
 // the same files keeps the manifest's "published").
@@ -45,19 +45,20 @@ for (let i = 2; i < process.argv.length; i++) {
 const DOCS = opt.docs;
 const BASE = "https://chicago.eatsranked.com/";
 const OWNED = ["lists", "neighborhoods", "cuisines"];
-const THIN = 20;              // graded places an area or cuisine page needs to be indexed
+const THIN = 20;              // ranked places (a Ranked score) an area or cuisine page needs to be indexed
 const ROWS = 100;             // rows on a page; the web version has the rest (it shows 100, then Show more)
 const CITY_DATA = "https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5";
 // the App Store listing (live since 2026-11-02): the Smart App Banner and the footer link, as on the root pages
 const APP_ID = "6816931379";
 const APP_STORE = `https://apps.apple.com/app/id${APP_ID}`;
-const OG_ALT = "Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped.";
+const OG_ALT = "Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, ranked and mapped.";
 // the guide pages' policy, without 'unsafe-inline' (no inline styles here); connect-src 'self' lets tools that read
 // robots.txt from the page (Lighthouse) do so
 const CSP = "default-src 'none'; script-src 'none'; style-src 'self'; img-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; upgrade-insecure-requests";
-// the site's own wording (index.html's grade scale, explore's list caption, About › Our grades and Data updates)
-const GRADES_LONG = "Our 0–100 score and A–F grade, calculated from City of Chicago inspection records since January 2023. Not official City grades: the City reports Pass, Pass w/ Conditions or Fail. An inspection describes conditions on the day of the visit.";
-const GRADES_CAPTION = "Our grades from City inspection records, not official City grades.";
+// the site's own wording (index.html's score scale, explore's list caption, About › How we rank and Data updates)
+const RANKED_LONG = "Our 0–100 Ranked score, calculated from public records: each place’s City of Chicago inspection record since January 2023 (40%, recent visits counting more), its years open at its address (30%) and hand-checked honors (30%), compared with other Chicago restaurants. Not an official City grade: the City reports Pass, Pass w/ Conditions or Fail. An inspection describes conditions on the day of the visit.";
+const GRADES_CAPTION = "Ranked scores are ours, from public records, not official City grades.";   // logic.js RANKED_LIST_NOTE
+const TOP = 80;               // "80 or higher": the top fifth of Chicago restaurants (DataStore.surpriseFrom)
 const VENUES = "not counting airports, stadiums, cafeterias and other non-restaurants";
 // the web version's About (Honors and published figures), word for word; under the Michelin & Beard list and on index.html
 const TRADEMARKS = "MICHELIN, MICHELIN Guide and Bib Gourmand are trademarks of Michelin. James Beard Foundation and James Beard Award are trademarks of the James Beard Foundation. Other names belong to their owners. This app is not affiliated with or endorsed by any of them.";
@@ -113,8 +114,9 @@ const placeHref = (up, p) => `${up}explore/#/place/${encodeURIComponent(p.id)}`;
 const boardHref = (up, id) => `${up}explore/#/board/${id}`;
 const searchHref = (up, key, value) => `${up}explore/#/search?${new URLSearchParams([[key, value]]).toString()}`;
 const sideName = (s) => (s === "Central" ? "Downtown" : `${s} Side`);   // the app's own words for a side (filters, search)
-// a screen reader hears "our grade A", as in the app (build 3), not a bare "Grade A" that could pass for the City's
-const gradeChip = (g, cls = "") => `<span class="g g${g}${cls ? " " + cls : ""}"><span class="sr">Our grade </span>${g}</span>`;
+// the Ranked score chip, as app.js draws it: a screen reader hears "Ranked score 91", never a bare number that could pass
+// for the City's. The band's colors are classes here (s90, s75, s50, s25, s0 in pages.css): the pages' CSP has no inline styles
+const scoreChip = (s, cls = "") => `<span class="g gs s${L.scoreBand(s).from}${s >= 100 ? " g100" : ""}${cls ? " " + cls : ""}"><span class="sr">Ranked score </span>${s}</span>`;
 /** A row's badges (logic.js badges). The chain badge reads "Chain · 35"; a screen reader also hears what 35 counts, as in
  *  the app ("Chain, 35 locations"). Every place on these pages is in Chicago, and its number is its Chicago locations. */
 const badgesHTML = (p, hideMichelin) => {
@@ -125,7 +127,7 @@ const badgesHTML = (p, hideMichelin) => {
 const AREA_THE = new Set(["Loop", "Near North Side", "Near South Side", "Near West Side", "Lower West Side", "East Side"]);
 const areaIn = (name) => (AREA_THE.has(name) ? `the ${name}` : name);
 const ldJSON = (o) => JSON.stringify(o, null, 1).replace(/</g, "\\u003c");
-/** A ranking's rows as schema.org ItemList, names and street addresses only: no grade, score, rating or review markup
+/** A ranking's rows as schema.org ItemList, names and street addresses only: no score, grade, rating or review markup
  *  (verify.py fails any), and no per-place URL (each place lives at a #/place route in the web version, one URL to a
  *  crawler). On one line: a hundred rows indented would add about half again to the JSON. */
 const listLD = (name, url, rows) => JSON.stringify({ "@context": "https://schema.org", "@type": "ItemList", name, url,
@@ -134,14 +136,14 @@ const listLD = (name, url, rows) => JSON.stringify({ "@context": "https://schema
       addressLocality: "Chicago", addressRegion: "IL", addressCountry: "US" } } : {}) } })) }).replace(/</g, "\\u003c");
 const FORK = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3v6.5a2.2 2.2 0 0 0 2.2 2.2h0a2.2 2.2 0 0 0 2.2-2.2V3M8.7 3v18M17.5 21V3c-2.3 1.4-3.3 4.2-3.3 7.6V13h3.3"/></svg>`;
 
-function gradeCounts(list) {
-  const c = { graded: 0, A: 0, B: 0, C: 0, D: 0, F: 0 };
-  for (const p of list) if (p.grade) { c.graded += 1; c[p.grade] += 1; }
+function rankCounts(list) {
+  const c = { ranked: 0, top: 0 };
+  for (const p of list) if (p.ranked != null) { c.ranked += 1; if (p.ranked >= TOP) c.top += 1; }
   return c;
 }
-/** "N have our grade: a A, b B, ..." with each number in a data-n span, which verify.py reads back. */
-const gradeLine = (c) => `<span data-n="graded">${n(c.graded)}</span> ${c.graded === 1 ? "has" : "have"} our grade`
-  + (c.graded ? `: ${L.GRADES_ORDER.map((g) => `<span data-n="${g}">${n(c[g])}</span> ${g}`).join(", ")}.` : ".");
+/** "N have our Ranked score, m of them 80 or higher." with each number in a data-n span, which verify.py reads back. */
+const rankLine = (c) => `<span data-n="ranked">${n(c.ranked)}</span> ${c.ranked === 1 ? "has" : "have"} our Ranked score`
+  + (c.ranked ? `, <span data-n="top">${n(c.top)}</span> of them ${TOP} or higher (Chicago’s top fifth).` : ".");
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const word = (k) => WORDS[k] ?? n(k);
 // Lengths: search results cut a title after about 60 characters and a description after about 160, and verify.py wants
@@ -152,18 +154,18 @@ const word = (k) => WORDS[k] ?? n(k);
 const TITLE = [50, 60], DESC = [140, 160];
 /** The first candidate whose length is in [lo, hi], else the first that isn't too long, else the last. */
 const sized = ([lo, hi], ...xs) => xs.find((x) => x.length >= lo && x.length <= hi) ?? xs.find((x) => x.length <= hi) ?? xs[xs.length - 1];
-/** An area's or cuisine's description: our grades for `what` ("57 places in the Loop, Chicago"), with how many are graded A
- *  when it fits. Candidates 11, at most 16 and 11 characters apart; the last, 11 longer than the first, only for a short
- *  name with no A (so the City's name isn't said twice when it isn't needed). */
-const gradeDesc = (what, rt, A) => {
-  const a = A ? `: ${n(A)} graded A` : "";
-  const from = (src) => `Our A–F grades for ${what}, from ${src} through ${longDate(rt)}`;
+/** An area's or cuisine's description: our Ranked scores for `what` ("57 places in the Loop, Chicago"), with how many are in
+ *  Chicago's top fifth when it fits. Candidates from the longest to the shortest, at most 21 characters apart. */
+const rankDesc = (what, rt, top) => {
+  const t = top ? `: ${n(top)} in Chicago’s top fifth` : "";
+  const from = (src) => `Our Ranked scores for ${what}, from ${src} through ${longDate(rt)}`;
   return sized(DESC,
-    `${from("City inspection records")}${a}. Not official City of Chicago grades.`,
-    `${from("City inspection records")}${a}. Not official City grades.`,
-    `${from("City inspection records")}. Not official City grades.`,
-    `${from("City records")}. Not official City grades.`,
-    `${from("City of Chicago inspection records")}${a}. Not official City of Chicago grades.`);
+    `${from("inspections, years open and honors")}${t}. Not official City grades.`,
+    `${from("inspections, years open and honors")}. Not official City grades.`,
+    `${from("public records")}${t}. Not official City grades.`,
+    `${from("public records")}. Not official City grades.`,
+    `${from("City records and honors")}. Not official.`,
+    `${from("public records")}. Not official.`);
 };
 /** Each cuisine group as a sentence says it ("burger places", "steakhouses"), not its filter label plus "places" ("Burgers
  *  places", "Steakhouse places"). Mid-sentence case: common nouns lowercase, names of peoples and places capitalized. A group
@@ -271,7 +273,7 @@ ${ld ? `<script type="application/ld+json">\n${ld}\n</script>\n` : ""}</head>
     <a class="logo" href="${up}" aria-label="Chicago Restaurants: Ranked home"><img src="${up}favicon.svg" width="32" height="32" alt="Chi Ranked app icon" decoding="async"><span>Chicago Restaurants: <b>Ranked</b></span></a>
     <nav aria-label="Primary">
       <a href="${up}#how">How it works</a>
-      <a href="${up}chicago-restaurant-grades.html">Grades</a>
+      <a href="${up}chicago-restaurant-grades.html">How we rank</a>
       <a href="${up}look-up-chicago-restaurant-inspections.html">Look up a place</a>
       <a href="${up}#faq">FAQ</a>
       <a href="${up}explore/">Search on the web</a>
@@ -293,17 +295,17 @@ ${body}
       <a href="${up}explore/">Search on the web</a>
       <a href="${APP_STORE}" rel="noopener">Get the iPhone and iPad app</a>
       <a href="${up}lists/">Chicago restaurant rankings</a>
-      <a href="${up}neighborhoods/">Grades by neighborhood</a>
-      <a href="${up}cuisines/">Grades by cuisine</a>
+      <a href="${up}neighborhoods/">Rankings by neighborhood</a>
+      <a href="${up}cuisines/">Rankings by cuisine</a>
       <a href="${up}how-chicago-restaurant-inspections-work.html">How Chicago restaurant inspections work</a>
       <a href="${up}look-up-chicago-restaurant-inspections.html">Look up a Chicago restaurant inspection</a>
-      <a href="${up}chicago-restaurant-grades.html">What the A–F grades mean</a>
+      <a href="${up}chicago-restaurant-grades.html">How the Ranked score works</a>
       <a href="${up}support.html">Help &amp; support</a>
       <a href="${up}privacy.html">Privacy policy</a>
       <a href="${up}terms.html">Terms of use</a>
       <a href="mailto:nick@eatsranked.com">Email support</a>
     </nav>
-    <p class="fine">Grades and scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
+    <p class="fine">Ranked scores and inspection scores are calculated by this app from public records. They are not official City of Chicago grades. Independent project by Nicholas Soderstrom. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health, Cook County, the Michelin Guide or the James Beard Foundation.</p>
     <p class="fine">City of Chicago data disclaimer: This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one's own risk.</p>
     <p class="fine">Inspection and license records: City of Chicago Data Portal. Property values: Cook County Assessor's Office. Restaurant websites and places outside Chicago: Overture Maps Foundation (CDLA Permissive 2.0, Apache 2.0, CC0).</p>
     <p class="fine">© 2026 <a class="hub" href="https://work-with-nick.com/" rel="author noopener">Nicholas Soderstrom</a>. Made in Chicago. Part of <a class="hub" href="https://eatsranked.com/" rel="noopener">Eats Ranked</a>, restaurant apps state by state.</p>
@@ -317,24 +319,25 @@ ${body}
 /** The records date and the City source, in one short line under the lede, so a phone reaches the first row within about a
  *  screen (QA6-SITE-05). Its <time> is the page's only one (verify.py reads it). */
 const sourceLine = (rt) => `    <p class="src">City records through <time datetime="${rt}">${longDate(rt)}</time>. Source: <a href="${CITY_DATA}" rel="noopener">City of Chicago Food Inspections</a> on the Chicago Data Portal.</p>`;
-/** The grade note and how the data is rebuilt, as one box after the list (the caption right above the rows already says the
- *  grades are ours, not official). */
+/** The score note and how the data is rebuilt, as one box after the list (the caption right above the rows already says the
+ *  scores are ours, not official). */
 function aboutBox(extra = "") {
   return `    <div class="box">
-      <p>${GRADES_LONG}</p>
+      <p>${RANKED_LONG}</p>
       <p>About once a week we rebuild the data from the City’s newest public records, and these pages with it.${extra}</p>
     </div>`;
 }
 
 // ------------------------------------------------------------------------------------------------ rows
 /** A place in an area or cuisine list: name, street address, the latest City result as the app words it (RankRow's result
- *  lines), our grade and score. The whole row links to the place in the web version. */
+ *  lines), our Ranked score and the place's position among Chicago restaurants. The whole row links to the place in the web
+ *  version. */
 function placeRow(up, p, other) {
   const sub = [p.addr, other].filter((x) => x != null).join(" · ");
-  const lines = p.grade ? [L.resultLine(p), L.newerLine(p)].filter(Boolean)
-    : ["No grade yet: no completed inspections since January 2023.", ...(p.lastDate ? [L.resultLine(p)] : [])];
-  const tile = p.grade ? gradeChip(p.grade, "gt") : `<span class="tile">${FORK}</span>`;
-  const score = p.score != null ? `<span class="rmetric"><b><span class="sr">inspection score </span>${p.score}</b></span>` : "";
+  const lines = p.insp != null ? [L.resultLine(p), L.newerLine(p)].filter(Boolean)
+    : ["No inspections since January 2023.", ...(p.lastDate ? [L.resultLine(p)] : [])];
+  const tile = p.ranked != null ? scoreChip(p.ranked, "gt") : `<span class="tile">${FORK}</span>`;
+  const score = p.rank != null ? `<span class="rmetric"><b><span class="sr">ranked </span>#${n(p.rank)}<span class="sr"> in Chicago</span></b></span>` : "";
   return `      <li><a class="rrow" href="${placeHref(up, p)}">${tile}<span class="rmain"><span class="rname">${esc(p.name)}</span>`
     + `<span class="rsub">${esc(sub)}</span>${lines.map((x) => `<span class="rres">${esc(x)}</span>`).join("")}</span>${score}</a></li>`;
 }
@@ -343,7 +346,7 @@ function rankRow(up, p, i, board, data) {
   const m = L.metric(board, p, data.recordsYear);
   const sub = [p.hood, p.cuisine].filter((x) => x != null).join(" · ");
   const badges = badgesHTML(p, board === "honors");
-  const grade = board !== "honors" && p.grade ? gradeChip(p.grade) : "";
+  const grade = !L.BOARDS[board].inspection && board !== "top" && p.ranked != null ? scoreChip(p.ranked) : "";   // RankRow.showsChip
   return `      <li><a class="rrow" href="${placeHref(up, p)}"><span class="rank${i < 3 ? " podium" : ""}${i >= 99 ? " long" : ""}"><span class="sr">Rank </span>${i + 1}</span>`
     + `<span class="rmain"><span class="rname">${esc(p.name)}</span><span class="rsub">${esc(sub)}</span>${badges}</span>`
     + `<span class="rmetric"><span class="mtop">${grade}<b>${esc(m[0])}</b></span><small>${esc(m[1])}</small></span></a></li>`;
@@ -379,27 +382,27 @@ function build({ chi, data }) {
     .filter((a) => a.r.total > 0);
   const cuisines = chi.cuisines.map((c) => ({ name: c, slug: slugOf("cuisines", c), r: listFor(L.newFilters({ cuisine: c })) }))
     .filter((c) => c.r.total > 0);
-  // grade counts over the whole list (search(), which results() cuts to the first SEARCH_LIMIT it shows)
+  // Ranked score counts over the whole list (search(), which results() cuts to the first SEARCH_LIMIT it shows)
   const fullList = (filters) => L.search(data, "", "chicago", filters);
   for (const x of [...areas.map((a) => [a, { hood: a.name }]), ...cuisines.map((c) => [c, { cuisine: c.name }])]) {
     const list = fullList(L.newFilters(x[1]));
     if (list.length !== x[0].r.total) fail(`${x[0].name}: search() has ${list.length} places, results() says ${x[0].r.total}`);
-    x[0].c = gradeCounts(list);
+    x[0].c = rankCounts(list);
   }
 
   // ---- neighborhoods
   const sides = chi.sides.filter((s) => areas.some((a) => a.side === s));
   const areaTotal = areas.reduce((t, a) => t + a.r.total, 0);
-  const areaC = gradeCounts(areas.flatMap((a) => fullList(L.newFilters({ hood: a.name }))));
+  const areaC = rankCounts(areas.flatMap((a) => fullList(L.newFilters({ hood: a.name }))));
   for (const a of areas) {
     const path = `neighborhoods/${a.slug}/`, up = "../../";
     const shown = a.r.places.slice(0, ROWS);
-    const index = a.c.graded >= THIN;
+    const index = a.c.ranked >= THIN;
     const siblings = areas.filter((x) => x !== a && x.side === a.side);
-    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(a.r.total)}</span> ${a.r.total === 1 ? "place" : "places"} in ${esc(areaIn(a.name))}, a Chicago community area${a.side === "Central" ? " Downtown" : a.side ? ` on the ${esc(sideName(a.side))}` : ""} (${VENUES}). ${gradeLine(a.c)}</p>
+    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(a.r.total)}</span> ${a.r.total === 1 ? "place" : "places"} in ${esc(areaIn(a.name))}, a Chicago community area${a.side === "Central" ? " Downtown" : a.side ? ` on the ${esc(sideName(a.side))}` : ""} (${VENUES}). ${rankLine(a.c)}</p>
 ${sourceLine(rt)}
-    <h2>Places, best inspection score first</h2>
-    <p class="cap">${GRADES_CAPTION} The order is the web version’s for this neighborhood: highest score first, ties by name, places without a score last.</p>
+    <h2>Places, highest Ranked score first</h2>
+    <p class="cap">${GRADES_CAPTION} The order is the web version’s for this neighborhood: highest Ranked score first, ties by name, places without one last.</p>
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p) => placeRow(up, p, p.cuisine)).join("\n")}
     </ol>
@@ -407,12 +410,13 @@ ${shown.map((p) => placeRow(up, p, p.cuisine)).join("\n")}
 ${aboutBox(" Each place’s page in the web version links to its own City inspection records.")}
     ${siblings.length ? `<h2>More ${esc(a.side ? sideName(a.side) : "")} neighborhoods</h2>
     <ul class="links" role="list">${siblings.map((x) => `<li><a href="${up}neighborhoods/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
-    ` : ""}<p><a href="${up}neighborhoods/">All Chicago neighborhoods</a> · <a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a></p>`;
+    ` : ""}<p><a href="${up}neighborhoods/">All Chicago neighborhoods</a> · <a href="${up}cuisines/">Rankings by cuisine</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "area", path, index,
-      title: sized(TITLE, `${a.name} Restaurant Inspection Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades, Chicago | Chi Ranked`, `${a.name} Restaurant Grades | Chi Ranked`),
-      desc: gradeDesc(`${plural(a.c.graded, "place", "places")} in ${areaIn(a.name)}, Chicago`, rt, a.c.A),
+      title: sized(TITLE, `${a.name} Restaurants, Ranked by Public Records | Chi Ranked`, `${a.name}, Chicago: Restaurant Rankings | Chi Ranked`,
+        `${a.name} Restaurant Rankings, Chicago | Chi Ranked`, `${a.name} Restaurant Rankings | Chi Ranked`, `${a.name} Restaurants | Chi Ranked`),
+      desc: rankDesc(`${plural(a.c.ranked, "place", "places")} in ${areaIn(a.name)}, Chicago`, rt, a.c.top),
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }, { name: a.name, path }],
-      h1: `${a.name} restaurant inspection grades`, kicker: `Chicago community area${a.side ? " · " + sideName(a.side) : ""}`, body });
+      h1: `${a.name} restaurants, ranked`, kicker: `Chicago community area${a.side ? " · " + sideName(a.side) : ""}`, body });
   }
   {
     const up = "../";
@@ -421,24 +425,24 @@ ${aboutBox(" Each place’s page in the web version links to its own City inspec
       return `    <h2 id="${slugify(sideName(s))}">${esc(sideName(s))}</h2>
     <div class="tablewrap"><table>
       <caption>${esc(sideName(s))}: ${plural(rows.length, "community area", "community areas")}</caption>
-      <thead><tr><th scope="col">Community area</th><th scope="col" class="num">Places</th><th scope="col" class="num">With our grade</th><th scope="col" class="num">Graded A</th></tr></thead>
+      <thead><tr><th scope="col">Community area</th><th scope="col" class="num">Places</th><th scope="col" class="num">With our Ranked score</th><th scope="col" class="num">${TOP} or higher</th></tr></thead>
       <tbody>
-${rows.map((a) => `        <tr><th scope="row"><a href="${up}neighborhoods/${a.slug}/">${esc(a.name)}</a></th><td class="num">${n(a.r.total)}</td><td class="num">${n(a.c.graded)}</td><td class="num">${n(a.c.A)}</td></tr>`).join("\n")}
+${rows.map((a) => `        <tr><th scope="row"><a href="${up}neighborhoods/${a.slug}/">${esc(a.name)}</a></th><td class="num">${n(a.r.total)}</td><td class="num">${n(a.c.ranked)}</td><td class="num">${n(a.c.top)}</td></tr>`).join("\n")}
       </tbody>
     </table></div>`;
     }).join("\n");
     const noSide = areas.filter((a) => !sides.includes(a.side));
-    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(areaTotal)}</span> places in <span data-n="areas">${n(areas.length)}</span> Chicago community areas (${VENUES}). <span data-n="graded">${n(areaC.graded)}</span> have our A–F grade, <span data-n="A">${n(areaC.A)}</span> of them an A. Pick a neighborhood to see its places, best inspection score first.</p>
+    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(areaTotal)}</span> places in <span data-n="areas">${n(areas.length)}</span> Chicago community areas (${VENUES}). <span data-n="ranked">${n(areaC.ranked)}</span> have our Ranked score, <span data-n="top">${n(areaC.top)}</span> of them ${TOP} or higher. Pick a neighborhood to see its places, highest Ranked score first.</p>
 ${sourceLine(rt)}
     <p class="jump">${sides.map((s) => `<a href="#${slugify(sideName(s))}">${esc(sideName(s))}</a>`).join(" · ")}</p>
 ${tables}${noSide.length ? `\n    <h2>Other areas</h2>\n    <ul class="links" role="list">${noSide.map((a) => `<li><a href="${up}neighborhoods/${a.slug}/">${esc(a.name)}</a></li>`).join("")}</ul>` : ""}
 ${aboutBox()}
-    <p><a href="${up}cuisines/">Grades by cuisine</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
+    <p><a href="${up}cuisines/">Rankings by cuisine</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "areas", path: "neighborhoods/", index: true,
-      title: "Chicago Restaurant Grades by Neighborhood | Chi Ranked",
-      desc: gradeDesc(`${n(areaC.graded)} places in ${n(areas.length)} Chicago community areas`, rt, areaC.A),
+      title: "Chicago Restaurant Rankings by Neighborhood | Chi Ranked",
+      desc: rankDesc(`${n(areaC.ranked)} places in ${n(areas.length)} Chicago community areas`, rt, areaC.top),
       crumbs: [home, { name: "Neighborhoods", path: "neighborhoods/" }],
-      h1: "Chicago restaurant grades by neighborhood", kicker: "Neighborhoods", body });
+      h1: "Chicago restaurant rankings by neighborhood", kicker: "Neighborhoods", body });
   }
 
   // ---- cuisines
@@ -446,11 +450,11 @@ ${aboutBox()}
   for (const c of cuisines) {
     const path = `cuisines/${c.slug}/`, up = "../../";
     const shown = c.r.places.slice(0, ROWS);
-    const index = c.c.graded >= THIN;
-    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(c.r.total)}</span> Chicago ${c.r.total === 1 ? "place" : "places"} under ${esc(c.name)} (${VENUES}). ${gradeLine(c.c)}</p>
+    const index = c.c.ranked >= THIN;
+    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(c.r.total)}</span> Chicago ${c.r.total === 1 ? "place" : "places"} under ${esc(c.name)} (${VENUES}). ${rankLine(c.c)}</p>
 ${sourceLine(rt)}
-    <h2>Places, best inspection score first</h2>
-    <p class="cap">${GRADES_CAPTION} The order is the web version’s for this cuisine: highest score first, ties by name, places without a score last.</p>
+    <h2>Places, highest Ranked score first</h2>
+    <p class="cap">${GRADES_CAPTION} The order is the web version’s for this cuisine: highest Ranked score first, ties by name, places without one last.</p>
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p) => placeRow(up, p, p.hood)).join("\n")}
     </ol>
@@ -458,34 +462,35 @@ ${shown.map((p) => placeRow(up, p, p.hood)).join("\n")}
 ${aboutBox(cuisineNote + " Each place’s page in the web version links to its own City inspection records.")}
     <h2>More cuisines</h2>
     <ul class="links" role="list">${cuisines.filter((x) => x !== c).map((x) => `<li><a href="${up}cuisines/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul>
-    <p><a href="${up}cuisines/">All cuisines</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a></p>`;
+    <p><a href="${up}cuisines/">All cuisines</a> · <a href="${up}neighborhoods/">Rankings by neighborhood</a> · <a href="${up}lists/">Rankings</a></p>`;
     add({ kind: "cuisine", path, index,
-      title: sized(TITLE, `Chicago ${titleWords(placesOf(c.name))}: Inspection Grades | Chi Ranked`, `Chicago ${c.name}: Inspection Grades | Chi Ranked`,
-        `Chicago ${c.name} Grades | Chi Ranked`),
-      desc: gradeDesc(c.c.graded === 1 ? `1 Chicago place under ${c.name}` : `${n(c.c.graded)} ${placesOf(c.name)} in Chicago`, rt, c.c.A),
+      title: sized(TITLE, ...[", Ranked by Public Records", ": Our Restaurant Rankings", ", Ranked on the Record", ": Ranked by Our Score", ": Our Rankings"]
+          .map((x) => `Chicago ${titleWords(placesOf(c.name))}${x} | Chi Ranked`),
+        `Chicago ${c.name} Restaurants, Ranked | Chi Ranked`, `Chicago ${c.name}: Rankings | Chi Ranked`, `Chicago ${c.name} | Chi Ranked`),
+      desc: rankDesc(c.c.ranked === 1 ? `1 Chicago place under ${c.name}` : `${n(c.c.ranked)} ${placesOf(c.name)} in Chicago`, rt, c.c.top),
       crumbs: [home, { name: "Cuisines", path: "cuisines/" }, { name: c.name, path }],
-      h1: `${upFirst(placesOf(c.name))} in Chicago: inspection grades`, kicker: "Chicago cuisine group", body });
+      h1: `${upFirst(placesOf(c.name))} in Chicago, ranked`, kicker: "Chicago cuisine group", body });
   }
   {
     const up = "../";
     const total = cuisines.reduce((t, c) => t + c.r.total, 0);
-    const cc = gradeCounts(cuisines.flatMap((c) => fullList(L.newFilters({ cuisine: c.name }))));
-    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(total)}</span> Chicago places in <span data-n="cuisines">${n(cuisines.length)}</span> cuisine groups (${VENUES}). <span data-n="graded">${n(cc.graded)}</span> have our A–F grade, <span data-n="A">${n(cc.A)}</span> of them an A. Pick a cuisine to see its places, best inspection score first.</p>
+    const cc = rankCounts(cuisines.flatMap((c) => fullList(L.newFilters({ cuisine: c.name }))));
+    const body = `    <p class="lede">The web version of Chicago Restaurants: Ranked lists <span data-n="places">${n(total)}</span> Chicago places in <span data-n="cuisines">${n(cuisines.length)}</span> cuisine groups (${VENUES}). <span data-n="ranked">${n(cc.ranked)}</span> have our Ranked score, <span data-n="top">${n(cc.top)}</span> of them ${TOP} or higher. Pick a cuisine to see its places, highest Ranked score first.</p>
 ${sourceLine(rt)}
     <div class="tablewrap"><table>
       <caption>Chicago cuisine groups</caption>
-      <thead><tr><th scope="col">Cuisine</th><th scope="col" class="num">Places</th><th scope="col" class="num">With our grade</th><th scope="col" class="num">Graded A</th></tr></thead>
+      <thead><tr><th scope="col">Cuisine</th><th scope="col" class="num">Places</th><th scope="col" class="num">With our Ranked score</th><th scope="col" class="num">${TOP} or higher</th></tr></thead>
       <tbody>
-${cuisines.map((c) => `        <tr><th scope="row"><a href="${up}cuisines/${c.slug}/">${esc(c.name)}</a></th><td class="num">${n(c.r.total)}</td><td class="num">${n(c.c.graded)}</td><td class="num">${n(c.c.A)}</td></tr>`).join("\n")}
+${cuisines.map((c) => `        <tr><th scope="row"><a href="${up}cuisines/${c.slug}/">${esc(c.name)}</a></th><td class="num">${n(c.r.total)}</td><td class="num">${n(c.c.ranked)}</td><td class="num">${n(c.c.top)}</td></tr>`).join("\n")}
       </tbody>
     </table></div>
 ${aboutBox(cuisineNote)}
-    <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
+    <p><a href="${up}neighborhoods/">Rankings by neighborhood</a> · <a href="${up}lists/">Rankings</a> · <a href="${up}explore/">Search and map in the web version</a></p>`;
     add({ kind: "cuisines", path: "cuisines/", index: true,
-      title: "Chicago Restaurant Inspection Grades by Cuisine | Chi Ranked",
-      desc: gradeDesc(`${n(cc.graded)} Chicago places in ${n(cuisines.length)} cuisine groups`, rt, cc.A),
+      title: "Chicago Restaurant Rankings by Cuisine | Chi Ranked",
+      desc: rankDesc(`${n(cc.ranked)} Chicago places in ${n(cuisines.length)} cuisine groups`, rt, cc.top),
       crumbs: [home, { name: "Cuisines", path: "cuisines/" }],
-      h1: "Chicago restaurant grades by cuisine", kicker: "Cuisines", body });
+      h1: "Chicago restaurant rankings by cuisine", kicker: "Cuisines", body });
   }
 
   // ---- rankings: the web version's boards that aren't negative, each under its home card's name
@@ -513,7 +518,7 @@ ${aboutBox(cuisineNote)}
 ${sourceLine(rt)}
     <div class="explainer"><h2>How it’s ranked</h2><p>${esc(L.explainer(b.id, rt))}</p></div>
     <h2>${heading}</h2>
-    ${b.id !== "honors" ? `<p class="cap">${GRADES_CAPTION}</p>` : ""}${L.NOTES[b.id] ? `<p class="cap">${esc(L.NOTES[b.id])}</p>` : ""}
+    <p class="cap">${b.B.inspection ? "Inspection scores are ours, from City inspection records, not official City scores." : GRADES_CAPTION}</p>${L.NOTES[b.id] ? `<p class="cap">${esc(L.NOTES[b.id])}</p>` : ""}
     <ol class="rlist" role="list" data-n-rows="${shown.length}">
 ${shown.map((p, i) => rankRow(up, p, i, b.id, data)).join("\n")}
     </ol>
@@ -521,17 +526,18 @@ ${shown.map((p, i) => rankRow(up, p, i, b.id, data)).join("\n")}
 ${b.id === "honors" ? `    <p class="tm">${esc(TRADEMARKS)}</p>\n` : ""}${aboutBox(" Each place’s page in the web version links to its own City inspection records.")}
     <h2>More rankings</h2>
     <ul class="links" role="list">${boards.filter((x) => x !== b).map((x) => `<li><a href="${up}lists/${x.slug}/">${esc(x.title)}</a></li>`).join("")}</ul>
-    <p><a href="${up}lists/">All rankings</a> · <a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
+    <p><a href="${up}lists/">All rankings</a> · <a href="${up}neighborhoods/">Rankings by neighborhood</a> · <a href="${up}cuisines/">Rankings by cuisine</a></p>`;
     const some = year ? (year.from === 0 ? `the first ${n(shown.length)} of ${n(year.total)} ${year.words}, A to Z,`
       : `the top ${n(shown.length)} Chicago places on this list,`)
       : shown.length < b.list.length ? (b.noCount ? `the top ${n(shown.length)} Chicago places on this list,` : `the top ${n(shown.length)} of ${n(b.list.length)} Chicago places on this list,`)
       : `all ${n(b.list.length)} Chicago places on this list,`;
     add({ kind: "board", path, index: true,
       title: `${b.title} · Chicago Restaurant Rankings | Chi Ranked`,
-      // the rows' grade chips (none on Michelin & Beard, whose honors are checked by hand), said at a length that fits
+      // what the rows' numbers are (Michelin & Beard's honors are checked by hand), said at a length that fits
       desc: sized(DESC, ...(b.id === "honors"
         ? [" Honors checked by hand against public announcements.", " Honors checked by hand.", " Checked by hand.", ""]
-        : [" Shown with our A–F grades, not official City grades.", " Our A–F grades, not official City grades.", " Shown with our A–F grades.", " With our A–F grades.", ""])
+        : b.B.inspection ? [" Our inspection scores, not official City scores.", " Our inspection scores, not official.", " Our inspection scores.", ""]
+        : [" Shown with our Ranked scores, not official City grades.", " Our Ranked scores, not official City grades.", " With our Ranked scores.", " Not official.", ""])
         .map((x) => `${b.sub}: ${some} with City records through ${longDate(rt)}.${x}`)),
       crumbs: [home, { name: "Rankings", path: "lists/" }, { name: b.title, path }],
       h1: b.title, kicker: "Chicago restaurant rankings", body, ld: listLD(b.title, BASE + path, shown) });
@@ -545,10 +551,10 @@ ${boards.map((b) => `      <li><a href="${up}lists/${b.slug}/"><b>${esc(b.title)
     </ul>
     <p>${word(negatives.length).replace(/^./, (ch) => ch.toUpperCase())} more lists, ${negatives.map((id) => ({ worst: "Lowest inspection scores", recentFails: "Failed latest inspection", pests: "Pest citations" }[id] || L.BOARDS[id].title)).join(", ").replace(/, ([^,]*)$/, " and $1")}, are in the <a href="${up}explore/">web version</a>, where each row shows the place’s street address and its latest City result with the date.</p>
 ${aboutBox()}
-    <p><a href="${up}neighborhoods/">Grades by neighborhood</a> · <a href="${up}cuisines/">Grades by cuisine</a></p>`;
+    <p><a href="${up}neighborhoods/">Rankings by neighborhood</a> · <a href="${up}cuisines/">Rankings by cuisine</a></p>`;
     add({ kind: "boards", path: "lists/", index: true,
       title: "Chicago Restaurant Rankings from Public Records | Chi Ranked",
-      desc: sized(DESC, ...["Michelin and James Beard", "Michelin and Beard"].map((h) => `${upFirst(word(boards.length))} Chicago restaurant rankings from public records, from the cleanest kitchens to ${h} honorees. City records through ${longDate(rt)}.`)),
+      desc: sized(DESC, ...["Michelin and James Beard", "Michelin and Beard"].map((h) => `${upFirst(word(boards.length))} Chicago restaurant rankings from public records, from our Ranked score to ${h} honorees. City records through ${longDate(rt)}.`)),
       crumbs: [home, { name: "Rankings", path: "lists/" }],
       h1: "Chicago restaurant rankings", kicker: "Rankings", body });
   }
@@ -613,7 +619,7 @@ writeIfChanged(smPath, sitemapWith(readFileSync(smPath, "utf8"), pages, loaded.p
 const thin = pages.filter((p) => !p.index);
 console.log(`static_pages: ${DOCS} <- manifest ${loaded.manifest.version} (records through ${rt}; published ${loaded.published}, the sitemap lastmod)`);
 console.log(`  ${pages.length} pages: ${boards.length + 1} rankings, ${areas.length + 1} neighborhoods, ${cuisines.length + 1} cuisines; `
-  + `${pages.length - thin.length} in the sitemap, ${thin.length} noindex (fewer than ${THIN} graded places: ${thin.map((p) => p.path).join(", ") || "none"})`);
+  + `${pages.length - thin.length} in the sitemap, ${thin.length} noindex (fewer than ${THIN} ranked places: ${thin.map((p) => p.path).join(", ") || "none"})`);
 if (unphrased.size) console.log(`  note: no wording in CUISINE_PLACES for ${[...unphrased].map((x) => JSON.stringify(x)).join(", ")}: their pages say "<group> places"; add it`);
 for (const c of changes.slice(0, 30)) console.log("  " + c);
 if (changes.length > 30) console.log(`  ... ${changes.length - 30} more`);

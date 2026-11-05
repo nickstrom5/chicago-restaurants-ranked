@@ -29,20 +29,20 @@ func j(_ v: Any?) -> Any { v ?? NSNull() }
 
 // ------------------------------------------------------------------------------------------------ JSON shapes
 func filtersJSON(_ f: Filters) -> [String: Any] {
-    ["sides": f.sides.sorted(), "hood": j(f.hood), "cuisine": j(f.cuisine), "grades": f.grades.map(\.rawValue).sorted(),
+    ["sides": f.sides.sorted(), "hood": j(f.hood), "cuisine": j(f.cuisine), "minRanked": j(f.minRanked),
      "liquor": f.liquor, "dineIn": f.dineIn, "hideChains": f.hideChains, "includeVenues": f.includeVenues, "city": j(f.city), "bib": f.bib]
 }
 
 let placeFields = ["id", "name", "addr", "zip", "lat", "lon", "city", "hood", "side", "cuisine", "brand", "chain", "venue", "isChicago", "web",
                    "dineIn", "liquor", "patio", "late", "since", "sinceFloor", "sinceVerified", "risk", "visits", "fails", "passCond", "violPer",
-                   "seriousPer", "pests", "complaints", "lastDate", "lastResult", "score", "grade", "newerResult", "newerDate", "bldg", "bldgClass",
+                   "seriousPer", "pests", "complaints", "lastDate", "lastResult", "insp", "ranked", "rank", "rankCap", "newerResult", "newerDate", "bldg", "bldgClass",
                    "bldgExact", "stars", "bib", "green", "jbf", "honors", "icon", "iconPts", "sales", "salesYear", "salesLabel", "salesKind", "aka",
                    "searchText", "nameText", "altBytes", "joinBytes", "placeLine", "isHonored", "passedSince", "failedSince", "isChain", "privateDining"]
 func placeJSON(_ p: Place) -> [Any] {
     [p.id, p.name, j(p.addr), j(p.zip), j(p.lat), j(p.lon), p.city, j(p.hood), j(p.side), p.cuisine, j(p.brand), p.chain, p.venue, p.isChicago,
      j(p.web?.absoluteString), j(p.dineIn), j(p.liquor), j(p.patio), j(p.late), j(p.since), p.sinceFloor, p.sinceVerified, j(p.risk), j(p.visits),
-     j(p.fails), j(p.passCond), j(p.violPer), j(p.seriousPer), j(p.pests), j(p.complaints), j(p.lastDate), j(p.lastResult), j(p.score),
-     j(p.grade?.rawValue), j(p.newerResult), j(p.newerDate), j(p.bldg), j(p.bldgClass), j(p.bldgExact), j(p.stars), p.bib, p.green, j(p.jbf),
+     j(p.fails), j(p.passCond), j(p.violPer), j(p.seriousPer), j(p.pests), j(p.complaints), j(p.lastDate), j(p.lastResult), j(p.insp),
+     j(p.ranked), j(p.rank), j(p.rankCap?.rawValue), j(p.newerResult), j(p.newerDate), j(p.bldg), j(p.bldgClass), j(p.bldgExact), j(p.stars), p.bib, p.green, j(p.jbf),
      j(p.honors), j(p.icon), j(p.iconPts), j(p.sales), j(p.salesYear), j(p.salesLabel), j(p.salesKind), j(p.aka), p.searchText, p.nameText,
      p.altBytes, p.joinBytes, p.placeLine, p.isHonored, p.passedSince, p.failedSince, p.isChain, p.isChicago && Finder.isPrivateDining(p)]
 }
@@ -204,10 +204,10 @@ func run(_ name: String, chicago chiData: Data, illinois ilData: Data, queries: 
     var filterSets: [Filters] = [Filters()]
     func f(_ edit: (inout Filters) -> Void) -> Filters { var x = Filters(); edit(&x); return x }
     filterSets += [f { $0.includeVenues = true }, f { $0.hideChains = true }, f { $0.liquor = true }, f { $0.dineIn = true },
-                   f { $0.grades = [.A, .B] }, f { $0.sides = ["North", "South"] }, f { $0.hideChains = true; $0.grades = [.A] },
+                   f { $0.minRanked = 50 }, f { $0.sides = ["North", "South"] }, f { $0.hideChains = true; $0.minRanked = 90 },
                    f { $0.bib = true }, f { $0.bib = true; $0.hideChains = true; $0.liquor = true }]
     for s in r.sides { filterSets.append(f { $0.sides = [s] }) }
-    for g in Grade.allCases { filterSets.append(f { $0.grades = [g] }) }
+    for m in [50, 75, 90] { filterSets.append(f { $0.minRanked = m }) }
     for h in r.hoods { filterSets.append(f { $0.hood = h }) }
     for c in Set(r.cuisines).sorted() { filterSets.append(f { $0.cuisine = c }) }
     if let c = r.cuisines.first { filterSets.append(f { $0.cuisine = c; $0.includeVenues = true; $0.liquor = true }) }
@@ -228,7 +228,7 @@ func run(_ name: String, chicago chiData: Data, illinois ilData: Data, queries: 
 
     // searches: each query plain, and some with filters
     var searches: [[String: Any]] = []
-    var chiFilters: [Filters] = [f { $0.grades = [.A] }, f { $0.sides = ["South"] }, f { $0.hideChains = true }, f { $0.includeVenues = true },
+    var chiFilters: [Filters] = [f { $0.minRanked = 75 }, f { $0.sides = ["South"] }, f { $0.hideChains = true }, f { $0.includeVenues = true },
                                  f { $0.liquor = true; $0.dineIn = true }, f { $0.bib = true }]
     if let c = r.cuisines.first(where: { $0 == "Mexican" }) ?? r.cuisines.first { chiFilters.append(f { $0.cuisine = c }) }
     if let h = r.hoods.first(where: { $0 == "West Town" }) ?? r.hoods.first { chiFilters.append(f { $0.hood = h }) }
@@ -259,7 +259,7 @@ func run(_ name: String, chicago chiData: Data, illinois ilData: Data, queries: 
                                               ("Springfield", 39.7817, -89.6501), ("O'Hare", 41.9786, -87.9048), ("Lake Michigan", 41.90, -87.40),
                                               ("Denver", 39.7392, -104.9903), ("Carbondale", 37.7273, -89.2168)]
     let nearTexts = ["", "pizza", "tacos pilsen", "starbucks", "naperville", "lou malnati's", "zzqx", "portilllo"]
-    var nearFilters: [Filters] = [Filters(), f { $0.grades = [.A] }, f { $0.includeVenues = true }, f { $0.hideChains = true }, f { $0.bib = true }]
+    var nearFilters: [Filters] = [Filters(), f { $0.minRanked = 75 }, f { $0.includeVenues = true }, f { $0.hideChains = true }, f { $0.bib = true }]
     if let c = r.cities.first { nearFilters.append(f { $0.city = c }) }
     var near: [[String: Any]] = []
     for (label, lat, lon) in points {

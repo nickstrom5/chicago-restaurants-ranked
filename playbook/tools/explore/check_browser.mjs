@@ -154,7 +154,7 @@ const paramsOf = (f, scope) => {
   if (scope === "illinois") sp.set("scope", "illinois");
   if (f.sides.length) sp.set("side", f.sides.join(","));
   if (f.hood) sp.set("hood", f.hood);
-  if (f.grades.length) sp.set("grade", f.grades.join(""));
+  if (f.minRanked != null) sp.set("score", String(f.minRanked));
   if (f.cuisine) sp.set("cuisine", f.cuisine);
   if (f.liquor) sp.set("liquor", "1");
   if (f.dineIn) sp.set("dinein", "1");
@@ -163,7 +163,7 @@ const paramsOf = (f, scope) => {
   if (f.city) sp.set("town", f.city);
   return sp;
 };
-const anyFilter = (f) => f.sides.length || f.hood || f.grades.length || f.cuisine || f.liquor || f.dineIn || f.hideChains || f.includeVenues || f.city || f.bib;
+const anyFilter = (f) => f.sides.length || f.hood || f.minRanked != null || f.cuisine || f.liquor || f.dineIn || f.hideChains || f.includeVenues || f.city || f.bib;
 
 // ------------------------------------------------------------------------------------------------ the checks
 const CLOSEST_NOTE = "Closest match, not an exact match";
@@ -189,7 +189,8 @@ const SEARCHES = pickSearches();
 // The other side of a search: under a list, "Also in <area>" with that side's first 3 exact matches and a link there; with no
 // exact match here, "In <area>" (before any Closest matches), or a line saying it has none either. Never its Closest matches.
 const AREA = { chicago: "Chicago", illinois: "Rest of Illinois" };
-const GRADES_CAPTION = "Our grades from City inspection records, not official City grades.";
+const GRADES_CAPTION = "Ranked scores are ours, from public records, not official City grades.";
+const NO_SCORES_IL = "No Ranked scores outside Chicago: they're built from City of Chicago records.";
 const plainSearch = (text, scope) => O.searches.find((x) => x.text === text && x.scope === scope && !anyFilter(x.filters));
 const searchHref = (text, scope) => { const sp = new URLSearchParams(); sp.set("q", text); if (scope === "illinois") sp.set("scope", "illinois"); return `#/search?${sp}`; };
 /** What the page should show of the other side of search `s`: from the oracle's own search of the same words there, with no
@@ -202,8 +203,8 @@ function alsoWant(s) {
   const rows = o.shown.slice(0, 3).map((id) => byId.get(id));
   return { state: "shown", h2: `${zero ? "In" : "Also in"} ${AREA[other]}`, ids: rows.map((p) => p.id), none: null,
     subs: rows.map((p) => [p.isChicago ? p.hood : p.city, p.cuisine].filter((x) => x != null).join(" · ") + ` · in ${AREA[other]}`),
-    grades: rows.map((p) => (p.grade ? `Our grade ${p.grade}` : null)),
-    cap: other === "illinois" ? "No grades outside Chicago: the City inspects only Chicago restaurants." : rows.some((p) => p.grade) ? GRADES_CAPTION : null,
+    grades: rows.map((p) => (p.ranked != null ? `Ranked score ${p.ranked}` : null)),
+    cap: other === "illinois" ? NO_SCORES_IL : rows.some((p) => p.ranked != null) ? GRADES_CAPTION : null,
     link: { text: o.total > 1 ? `See all ${o.total.toLocaleString("en-US")} in ${AREA[other]}` : `Search ${AREA[other]} for “${s.text.trim()}”`, href: searchHref(s.text, other) } };
 }
 /** The other side as the page shows it (#sbody's data-also: off, later, loading, shown, none or failed). */
@@ -232,7 +233,7 @@ function checkAlsoAgainst(want, got, what) {
   check(got.none === want.none, `${what}: the line when the other side has none`, want.none, got.none);
   if (want.state !== "shown") return;
   check(same(got.subs, want.subs), `${what}: the other side's rows say neighborhood or town · cuisine (and the area, for a screen reader)`, want.subs, got.subs);
-  check(same(got.grades, want.grades), `${what}: the other side's grade chips`, want.grades, got.grades);
+  check(same(got.grades, want.grades), `${what}: the other side's Ranked score chips`, want.grades, got.grades);
   check(got.cap === want.cap, `${what}: the other side's caption`, want.cap, got.cap);
   check(same(got.link && { text: got.link.text, href: got.link.href }, want.link), `${what}: the link to the other side`, want.link, got.link);
   check(same(got.list, { role: "list", labelled: true, tag: "H2" }), `${what}: the other side is a list under its own heading`, { role: "list", labelled: true, tag: "H2" }, got.list);
@@ -280,8 +281,8 @@ async function checkSearch(s, label) {
       links: [...(filtered ? ["Clear filters"] : [])] };
     check(same(got.head, want), `${what}: the No exact match heading`, want, got.head);
     check(got.empty === null, `${what}: no "No results" panel under Closest matches`, null, got.empty);
-    const graded = s.closest.some((id) => byId.get(id)?.grade);
-    if (graded) check(got.cap === "Our grades from City inspection records, not official City grades.", `${what}: grades caption`, "Our grades…", got.cap);
+    const graded = s.closest.some((id) => byId.get(id)?.ranked != null);
+    if (graded) check(got.cap === GRADES_CAPTION, `${what}: Ranked scores caption`, GRADES_CAPTION, got.cap);
   } else if (s.total === 0) {
     // with exact matches on the other side (shown right below), the heading names this area and doesn't suggest a misspelling
     const other = alsoWant(s), t = s.text.trim(), filtered = anyFilter(s.filters);
@@ -490,7 +491,7 @@ async function checkIllinoisLoading(label) {
     await page("Fetch.disable");
     if (await waitFor(`!document.querySelector("#sbody .spin") && !!document.querySelector("#sbody ol.rlist")`, "Rest of Illinois results", 30000)) {
       const after = await js(SHAPE);
-      const cap = "No grades outside Chicago: the City inspects only Chicago restaurants.";
+      const cap = NO_SCORES_IL;
       // (the Filters button is in the page at both widths; a wide screen hides that one, its filters sit beside the list)
       check(during.count === "Loading…" && during.filters && during.cap === cap, `${label} Rest of Illinois loading: a count placeholder, the Filters button, the caption`,
         { count: "Loading…", filters: true, cap }, during);
@@ -520,11 +521,12 @@ async function checkPlace(id, label, extra) {
     check(got.kv[lastKey] === `${fmt(p.lastDate)} · ${p.lastResult ?? "—"}`, `${what}: ${lastKey}`, `${fmt(p.lastDate)} · ${p.lastResult}`, got.kv[lastKey]);
     if (p.newerResult) {
       check(got.kv["Newer City result"] === `${p.newerResult}, ${fmt(p.newerDate)}`, `${what}: Newer City result`, `${p.newerResult}, ${fmt(p.newerDate)}`, got.kv["Newer City result"]);
-      check(got.text.includes("so it isn't in our score or grade yet."), `${what}: says the newer result isn't in the grade`, true, false);
+      check(got.text.includes("so it isn't in our scores yet."), `${what}: says the newer result isn't in our scores`, true, false);
       check(!("Last city inspection" in got.kv), `${what}: doesn't call the older one the City's last`, undefined, got.kv["Last city inspection"]);
     } else check(!("Newer City result" in got.kv), `${what}: no Newer City result`, undefined, got.kv["Newer City result"]);
     if (p.aka) check(got.kv["Also on City records as"] === p.aka, `${what}: aka shown as "A · B"`, p.aka, got.kv["Also on City records as"]);
-    if (p.grade) check(got.grade === `Inspection score ${p.score}/100`, `${what}: score`, `Inspection score ${p.score}/100`, got.grade);
+    if (p.ranked != null) check(got.grade === `Ranked score ${p.ranked}`, `${what}: Ranked score`, `Ranked score ${p.ranked}`, got.grade);
+    if (p.insp != null) check(got.kv["Inspection score (recent visits count more)"] === `${p.insp}/100`, `${what}: inspection score`, `${p.insp}/100`, got.kv["Inspection score (recent visits count more)"]);
   } else check(got.kv.Town === p.city, `${what}: town`, p.city, got.kv.Town);
   if (extra) await extra(got, what);
 }
@@ -573,9 +575,10 @@ async function checkHome(label) {
   await go("#/");
   if (!(await waitFor(`!!document.querySelector(".cards")`, "home"))) return;
   const got = await js(`Object.fromEntries([...document.querySelectorAll(".cards a.card")].map((a) => [a.dataset.card, { n: a.querySelector(".num") ? a.querySelector(".num").textContent : null, s: a.querySelector(".s").textContent }]))`);
-  // lists[0] is the board with no filters; the hot dog card is Cleanest with only the cuisine filter
+  // lists[0] is the board with no filters; the hot dog card is Top Ranked with only the cuisine filter
   const count = (id, cuisine) => (cuisine ? O.boards[id].lists.find((l) => l.filters.cuisine === cuisine && !l.filters.includeVenues && !l.filters.liquor) : O.boards[id].lists[0]).count;
-  const want = { cleanest: count("cleanest"), hotDogs: count("cleanest", "Hot Dogs & Beef"), honors: count("honors"), watch: count("recentFails"), building: count("building"), sales: count("sales") };
+  check(got.top && got.top.n === null && got.top.s === "Our Ranked score: inspections, years open and honors", `${label} home: Top Ranked card (no count)`, "no count", got.top);
+  const want = { cleanest: count("cleanest"), hotDogs: count("top", "Hot Dogs & Beef"), honors: count("honors"), watch: count("recentFails"), building: count("building"), sales: count("sales") };
   for (const [k, v] of Object.entries(want)) check(got[k] && got[k].n === v.toLocaleString("en-US"), `${label} home: ${k} card count`, v, got[k] && got[k].n);
   const il = manifest.counts.illinois;
   check(got.illinois && (got.illinois.n === il.toLocaleString("en-US") || got.illinois.n === O.meta.illinoisRestaurantCount.toLocaleString("en-US")), `${label} home: Rest of Illinois count`, il, got.illinois && got.illinois.n);
@@ -597,7 +600,7 @@ async function checkMap(label, phone) {
   await shot(`${label}-map-chicago`);
   await pageChecks(`${label} map`);
   // a focused place: the map flies there and shows its card, fully on screen (above the phone's tab bar)
-  const focus = chicago.find((p) => p.grade === "A" && !p.venue && p.lat != null);
+  const focus = chicago.find((p) => (p.ranked ?? 0) >= 80 && !p.venue && p.lat != null);
   await go(`#/map?focus=${encodeURIComponent(focus.id)}`);
   if (await waitFor(`!document.querySelector("#mcard").hidden`, "the focused place's card")) {
     got = await js(`(() => { const c = document.querySelector("#mcard"), r = c.getBoundingClientRect(), t = document.querySelector(".tabs");
@@ -638,7 +641,7 @@ async function checkClearFocus(label, phone) {
     return { tag: a ? a.tagName : null, text: a ? a.textContent.trim().slice(0, 30) : null, inPanel: !!(p && a && p.contains(a)),
       visible: !!(a && a.getClientRects().length), sheet: document.body.classList.contains("sheet-open") }; })()`;
   for (const [h, sel] of [["#/board/cleanest", "#bpanel"], ["#/search?q=pizza", "#spanel"], ["#/map", "#mpanel"]]) {
-    const what = `${label} ${h} Clear all filters`, gradeA = JSON.stringify(`${sel} button[data-f="grade"][data-v="A"]`);
+    const what = `${label} ${h} Clear all filters`, gradeA = JSON.stringify(`${sel} select[data-f="score"]`);
     const row = JSON.stringify(`${sel} [data-clearrow]`);
     await go(h);
     // a search redraws its panel once the rest of Illinois is in, so that has to settle first
@@ -647,13 +650,13 @@ async function checkClearFocus(label, phone) {
     if (!(await js(`document.querySelector(${gradeA}).getClientRects().length > 0`)))
       await js(`[...document.querySelectorAll("[data-toggle-filters]")].find((b) => b.getClientRects().length).click()`);
     if (!(await waitFor(`document.querySelector(${gradeA}).getClientRects().length > 0`, `${h} filters open`))) continue;
-    await js(`document.querySelector(${gradeA}).focus()`);
-    await key("Enter");
-    if (!(await waitFor(`/[?&]grade=A/.test(location.hash) && !document.querySelector(${row}).hidden`, `${h} with grade A`))) continue;
+    // a select's own keys differ by platform (macOS opens its menu), so the floor is set as a change would set it
+    await js(`(() => { const s = document.querySelector(${gradeA}); s.focus(); s.value = "75"; s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    if (!(await waitFor(`/[?&]score=75/.test(location.hash) && !document.querySelector(${row}).hidden`, `${h} with Ranked score 75+`))) continue;
     const on = await js(`(() => { const b = document.querySelector(${JSON.stringify(`${sel} [data-f="clear"]`)}); b.focus(); return document.activeElement === b; })()`);
     if (!check(on, `${what}: the button takes focus`, true, on)) continue;
     await key("Enter");
-    if (!(await waitFor(`!/grade=/.test(location.hash) && document.querySelector(${row}).hidden`, `${h} filters cleared`))) continue;
+    if (!(await waitFor(`!/score=/.test(location.hash) && document.querySelector(${row}).hidden`, `${h} filters cleared`))) continue;
     let got = await js(FOCUS(sel));
     const want = { tag: "H2", text: "Filters", inPanel: true, visible: true, sheet: phone };
     check(same(got, want), `${what}: focus on the panel's heading, on screen (not <body>)${phone ? ", the sheet still open" : ""}`, want, got);

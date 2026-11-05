@@ -71,7 +71,7 @@ its own ports, set `MIRROR_PORT` (the browser step's mirror) and `VERIFY_PORT` (
    as the runbook does before a push. `explore/` gets its site-wide checks (canonical, og:url, images and JSON-LD on
    https://chicago.eatsranked.com/, the footer's "Part of Eats Ranked" line, no old address, no "every Chicago restaurant").
    It must end `PROBLEMS: 0`.
-6. **Mutants** (`mutate.mjs`, with `--mutants`). Plants 23 small bugs one at a time in a copy of the web app (a stem
+6. **Mutants** (`mutate.mjs`, with `--mutants`). Plants 29 small bugs one at a time in a copy of the web app (a stem
    rule off by one, Closest matches' limits and weights, alt names dropped, the 90-day window, a reworded row note, a row
    skipped when the rest of Illinois is read in slices...)
    and requires the logic test to catch each. Run it after changing `check_logic.mjs` or the oracle.

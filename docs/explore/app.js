@@ -23,8 +23,9 @@ const Q_MAX = 120;            // search runs on the main thread, so a long paste
 const capQ = (s) => { const a = Array.from(s || ""); return a.length > Q_MAX ? a.slice(0, Q_MAX).join("") : s || ""; };
 const phone = matchMedia("(max-width: 719px)"), wide = matchMedia("(min-width: 1100px)");
 const placeHref = (p) => `#/place/${encodeURIComponent(p.id)}`;
-// a screen reader hears "our grade A", as in the app (build 3), not a bare "Grade A" that could pass for the City's
-const gradeChip = (g, cls = "") => `<span class="g g${g}${cls ? " " + cls : ""}"><span class="sr">Our grade </span>${g}</span>`;
+// the Ranked score chip (ScoreChip): the number on its color band; a screen reader hears "Ranked score 91", as in the app,
+// never a bare number that could pass for the City's
+const scoreChip = (s, cls = "") => { const b = L.scoreBand(s); return `<span class="g gs${s >= 100 ? " g100" : ""}${b.from < 25 ? " glight" : ""}${cls ? " " + cls : ""}" style="background:${b.fill};color:${b.text}"><span class="sr">Ranked score </span>${s}</span>`; };
 /** The words searched, shown back on the page: in <bdi>, so a bidi control in them (a crafted link's U+202E) can't flip the
  *  text around them. esc() already keeps out markup. */
 const bdi = (text) => `<bdi>${esc(text)}</bdi>`;
@@ -32,10 +33,9 @@ const bdi = (text) => `<bdi>${esc(text)}</bdi>`;
  *  marks), so the rest of the title reads the right way round. Display only: the search itself keeps them (logic.js reads
  *  them as word breaks). */
 const titleText = (text) => text.replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
-const GRADE_FILL = { A: "#12733A", B: "#4B7A1B", C: "#F2B01E", D: "#E8804F", F: "#C1302F" };
-const GRADE_TEXT = { A: "#fff", B: "#fff", C: "#2B1D00", D: "#2B1000", F: "#fff" };
 const MUTED = "#52638A", BLUE = "#0E3386";
-const GRADES_CAPTION = "Our grades from City inspection records, not official City grades.";
+const SCORES_CAPTION = L.RANKED_LIST_NOTE;
+const NO_SCORES_IL = "No Ranked scores outside Chicago: they're built from City of Chicago records.";
 const DATA = "../data/v1/";
 
 // ------------------------------------------------------------------------------------------------ state
@@ -226,8 +226,8 @@ function filtersFromParams(sp, scope) {
     const sides = (sp.get("side") || "").split(",").filter((s) => d && d.sides.includes(s));
     if (sides.length) o.sides = sides;
     if (sp.get("hood") && d && d.hoods.includes(sp.get("hood"))) o.hood = sp.get("hood");
-    const g = [...new Set((sp.get("grade") || "").toUpperCase().split(""))].filter((x) => L.GRADES_ORDER.includes(x));
-    if (g.length) o.grades = g;
+    const m = Number(sp.get("score"));
+    if (L.RANKED_STEPS.includes(m)) o.minRanked = m;
     if (sp.get("liquor") === "1") o.liquor = true;
     if (sp.get("dinein") === "1") o.dineIn = true;
   }
@@ -244,7 +244,7 @@ function filtersFromParams(sp, scope) {
 function filtersToParams(f, sp = new URLSearchParams()) {
   if (f.sides.size) sp.set("side", [...f.sides].join(","));
   if (f.hood) sp.set("hood", f.hood);
-  if (f.grades.size) sp.set("grade", L.GRADES_ORDER.filter((g) => f.grades.has(g)).join(""));
+  if (f.minRanked != null) sp.set("score", String(f.minRanked));
   if (f.cuisine) sp.set("cuisine", f.cuisine);
   if (f.liquor) sp.set("liquor", "1");
   if (f.dineIn) sp.set("dinein", "1");
@@ -392,7 +392,7 @@ function renderLoading(view) {
       <p>${missing ? "The web app reads the same weekly data files as the iPhone app, and they aren't on this site yet. Please check back soon."
         : offline ? "Check your connection and try again."
         : "It may be in the middle of its weekly update. Try again in a few minutes."}</p>
-      <div class="row"><button class="btn solid" id="retry" type="button">Try again</button><a class="btn" href="../chicago-restaurant-grades.html">How the grades work</a></div></div></section>`;
+      <div class="row"><button class="btn solid" id="retry" type="button">Try again</button><a class="btn" href="../chicago-restaurant-grades.html">How we rank</a></div></div></section>`;
     $("#retry").onclick = async () => { state.error = null; render(); await loadChicago(); render(); };
     return;
   }
@@ -419,7 +419,8 @@ function rankRow(p, i, board) {
     lines = `<span class="rsub">${esc([p.addr, p.hood].filter((x) => x != null).join(" · "))}</span>`
       + `<span class="rres">${esc(L.resultLine(p))}</span>` + (L.newerLine(p) ? `<span class="rres">${esc(L.newerLine(p))}</span>` : "");
   } else lines = `<span class="rsub">${esc([p.hood, p.cuisine].filter((x) => x != null).join(" · "))}</span>`;
-  const grade = board !== "honors" && p.grade ? gradeChip(p.grade) : "";
+  // the chip beside the row's number: not on Top Ranked (the number is the score) or the inspection boards (RankRow.showsChip)
+  const grade = !L.BOARDS[board].inspection && board !== "top" && p.ranked != null ? scoreChip(p.ranked) : "";
   return `<li><a class="rrow" href="${placeHref(p)}"><span class="rank${i < 3 ? " podium" : ""}${i >= 99 ? " long" : ""}"><span class="sr">Rank </span>${i + 1}</span>`
     + `<span class="rmain"><span class="rname">${esc(p.name)}</span>${lines}${badgesHTML(p, board === "honors")}</span>`
     + `<span class="rmetric"><span class="mtop">${grade}<b>${esc(m[0])}</b></span><small>${esc(m[1])}</small></span></a></li>`;
@@ -430,9 +431,10 @@ const CLOSEST_NOTE = "Closest match, not an exact match";
 /** One Search row. `area` ("Chicago", "Rest of Illinois"): a row from the other side of the search (Also in …), which says
  *  neighborhood or town · cuisine, and names the area for a screen reader too. */
 function searchRow(p, dist, extra = "", closest = false, area = null) {
-  const tile = p.grade ? gradeChip(p.grade, "gt") : `<span class="tile">${icon("fork")}</span>`;
+  const tile = p.ranked != null ? scoreChip(p.ranked, "gt") : `<span class="tile">${icon("fork")}</span>`;
   const addr = area ? [p.isChicago ? p.hood : p.city, p.cuisine].filter((x) => x != null).join(" · ") : [p.addr, p.placeLine].filter((x) => x != null).join(" · ");
-  const right = (p.score != null ? `<span class="score"><span class="sr">inspection score </span>${p.score}</span>` : "")
+  // the place's position among Chicago restaurants (the chip is the score itself)
+  const right = (p.rank != null ? `<span class="score"><span class="sr">ranked </span>#${L.Fmt.number(p.rank)}<span class="sr"> in Chicago</span></span>` : "")
     + (dist != null ? `<span class="dist">${esc(L.distLabel(dist))}</span>` : "");
   return `<li class="srow-li"><a class="rrow srow" href="${placeHref(p)}">${tile}<span class="rmain"><span class="rname">${esc(p.name)}</span>`
     + `<span class="rsub">${esc(addr)}${area ? `<span class="sr"> · in ${esc(area)}</span>` : ""}</span>${closest ? `<span class="rclose">${icon("question")}<span>${CLOSEST_NOTE}</span></span>` : ""}`
@@ -466,8 +468,8 @@ function otherSide(q, scope, compute = true) {
 /** The other side's first rows under a heading, and a link there that keeps the words (`zero`: nothing matches here exactly). */
 function alsoHTML(o, q, zero) {
   const area = AREA[o.other], text = q.trim();
-  const graded = o.rows.some((p) => p.grade != null);
-  const cap = o.other === "illinois" ? "No grades outside Chicago: the City inspects only Chicago restaurants." : graded ? GRADES_CAPTION : "";
+  const graded = o.rows.some((p) => p.ranked != null);
+  const cap = o.other === "illinois" ? NO_SCORES_IL : graded ? SCORES_CAPTION : "";
   const link = o.total > 1 ? `See all ${n(o.total)} in ${area}` : `Search ${area} for “${bdi(text)}”`;
   return `<div class="also" data-area="${o.other}"><h2 id="also-h">${zero ? "In" : "Also in"} ${area}</h2>`
     + `<ol role="list" class="rlist also-list" aria-labelledby="also-h">${o.rows.map((p) => searchRow(p, null, "", false, area)).join("")}</ol>`
@@ -497,7 +499,7 @@ function filtersPanel(scope, f, opts = {}) {
   let html = `<div class="fhead"><h2>${scope === "chicago" ? "Filters" : "Filters · Rest of Illinois"}</h2><button class="linkbtn m-only" type="button" data-f="close">Done</button></div><div class="fgrid">`;
   if (scope === "chicago") {
     html += `<fieldset class="fgroup"><legend>Side of the city</legend><div class="fchips">${d.sides.map((s) => `<button type="button" data-f="side" data-v="${esc(s)}" aria-pressed="${f.sides.has(s)}">${esc(s === "Central" ? "Downtown" : s)}</button>`).join("")}</div></fieldset>`;
-    html += `<fieldset class="fgroup"><legend>Inspection grade (ours, not official)</legend><div class="fgrades${f.grades.size ? " some" : ""}">${L.GRADES_ORDER.map((g) => `<button type="button" data-f="grade" data-v="${g}" aria-pressed="${f.grades.has(g)}" aria-label="Grade ${g}"><span class="g g${g}" aria-hidden="true">${g}</span></button>`).join("")}</div></fieldset>`;
+    html += `<div class="fgroup">${sel("score", "Ranked score (ours, not official)", "Any score", L.RANKED_STEPS.map(String), f.minRanked == null ? null : String(f.minRanked), (m) => `${m} or higher (top ${100 - Number(m)}%)`)}</div>`;
     html += `<div class="fgroup">${sel("hood", "Neighborhood", "All neighborhoods", d.hoods, f.hood)}</div>`;
   } else {
     html += `<div class="fgroup">${sel("town", "Town", "All towns", [...d.cities].sort(L.cmpStr), f.city)}</div>`;
@@ -511,7 +513,7 @@ function filtersPanel(scope, f, opts = {}) {
   // a fact from the MICHELIN Guide, not a rating (FiltersView); only where this scope has Bib Gourmand places
   if (scope === "chicago" && d.bibCount > 0) html += `<fieldset class="fgroup"><legend>MICHELIN Guide</legend><div class="fchecks">${check("bib", "Bib Gourmand", f.bib)}</div></fieldset>`;
   html += `</div>`;
-  if (opts.near) html += `<p class="fnote">Grade, side, neighborhood, alcohol and dining-room filters come from City of Chicago records, so they show Chicago places only.</p>`;
+  if (opts.near) html += `<p class="fnote">Ranked score, side, neighborhood, alcohol and dining-room filters come from City of Chicago records, so they show Chicago places only.</p>`;
   html += `<p class="fnote"${L.activeCount(f) ? "" : " hidden"} data-clearrow><button class="btn small" type="button" data-f="clear">Clear all filters</button></p>`;
   // on a phone the panel is a sheet over the list: this shows what the filters leave and closes it
   html += `<div class="fdone"><button class="btn solid" type="button" data-f="close" data-count>${showCount(opts.count)}</button></div>`;
@@ -550,7 +552,7 @@ function fitSide() {
 
 /** Wires a filters panel: each change calls onChange(newFilters). */
 function bindFilters(panel, getF, onChange, onClose) {
-  const edit = (fn) => { const f = getF(); const g = L.newFilters({ sides: [...f.sides], hood: f.hood, cuisine: f.cuisine, grades: [...f.grades], liquor: f.liquor, dineIn: f.dineIn, hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city, bib: f.bib }); fn(g); onChange(g); syncFilters(panel, g); };
+  const edit = (fn) => { const f = getF(); const g = L.newFilters({ sides: [...f.sides], hood: f.hood, cuisine: f.cuisine, minRanked: f.minRanked, liquor: f.liquor, dineIn: f.dineIn, hideChains: f.hideChains, includeVenues: f.includeVenues, city: f.city, bib: f.bib }); fn(g); onChange(g); syncFilters(panel, g); };
   const close = () => { onClose(); syncSheet(); };
   state.closeSheet = close;
   panel.addEventListener("keydown", (e) => {
@@ -571,7 +573,6 @@ function bindFilters(panel, getF, onChange, onClose) {
     if (k === "close") { close(); return; }
     if (k === "clear") { edit((g) => { Object.assign(g, L.newFilters()); }); return; }
     if (k === "side") edit((g) => { if (g.sides.has(v)) g.sides.delete(v); else g.sides.add(v); });
-    if (k === "grade") edit((g) => { if (g.grades.has(v)) g.grades.delete(v); else g.grades.add(v); });
   });
   panel.addEventListener("change", (e) => {
     const el = e.target.closest("[data-f]");
@@ -579,6 +580,7 @@ function bindFilters(panel, getF, onChange, onClose) {
     const k = el.dataset.f;
     edit((g) => {
       if (k === "hood") g.hood = el.value || null;
+      if (k === "score") g.minRanked = el.value ? Number(el.value) : null;
       if (k === "town") g.city = el.value || null;
       if (k === "cuisine") g.cuisine = el.value || null;
       if (k === "nochains") g.hideChains = el.checked;
@@ -591,10 +593,8 @@ function bindFilters(panel, getF, onChange, onClose) {
 }
 function syncFilters(panel, f) {
   panel.querySelectorAll('button[data-f="side"]').forEach((b) => b.setAttribute("aria-pressed", String(f.sides.has(b.dataset.v))));
-  panel.querySelectorAll('button[data-f="grade"]').forEach((b) => b.setAttribute("aria-pressed", String(f.grades.has(b.dataset.v))));
-  const gr = panel.querySelector(".fgrades"); if (gr) gr.classList.toggle("some", f.grades.size > 0);
   const set = (k, v) => { const el = panel.querySelector(`[data-f="${k}"]`); if (el) { if (el.type === "checkbox") el.checked = !!v; else el.value = v || ""; } };
-  set("hood", f.hood); set("town", f.city); set("cuisine", f.cuisine); set("nochains", f.hideChains); set("liquor", f.liquor); set("dinein", f.dineIn); set("venues", f.includeVenues); set("bib", f.bib);
+  set("hood", f.hood); set("score", f.minRanked == null ? "" : String(f.minRanked)); set("town", f.city); set("cuisine", f.cuisine); set("nochains", f.hideChains); set("liquor", f.liquor); set("dinein", f.dineIn); set("venues", f.includeVenues); set("bib", f.bib);
   const cr = panel.querySelector("[data-clearrow]");
   if (cr) {
     const hide = L.activeCount(f) === 0;
@@ -615,14 +615,14 @@ function focusFilters(root) { const h = root.querySelector(".colside .fpanel h2"
 // ------------------------------------------------------------------------------------------------ home (HomeView.swift)
 function viewHome(view, route) {
   const d = D();
-  document.title = "Chicago Restaurant Grades, Map & Rankings | Chi Ranked";
+  document.title = "Chicago Restaurant Rankings, Map & Inspections | Chi Ranked";
   const ilN = illinoisCount(), towns = townCount();
   const cards = L.HOME_CARDS.map((c) => {
     let count = null, href = "#/", sub = c.sub;
     if (c.board) { href = boardHash(c.board, L.newFilters(c.filters)); if (!c.noCount) count = L.boardCount(d, c.board, L.newFilters(c.filters)); }
     else if (c.near) href = searchHash({ near: true });
     else if (c.search === "chicago") href = searchHash({});
-    else if (c.search === "illinois") { href = searchHash({ scope: "illinois" }); count = ilN; if (towns != null) sub = `Restaurants in ${n(towns)} more towns. No grades outside Chicago.`; }
+    else if (c.search === "illinois") { href = searchHash({ scope: "illinois" }); count = ilN; if (towns != null) sub = `Restaurants in ${n(towns)} more towns. Not ranked outside Chicago.`; }
     const art = c.icon === "hotdog" ? `<img src="hotdog.png" width="30" height="11" alt="">` : icon(c.icon);
     return `<li><a class="card${c.signature ? " sig" : ""}" href="${href}" data-card="${c.id}"><span class="row"><span class="circle" aria-hidden="true">${art}</span>`
       + (count != null ? `<span class="num" aria-hidden="true">${n(count)}</span>` : "") + `</span><span class="t">${esc(c.title)}</span>`
@@ -632,19 +632,19 @@ function viewHome(view, route) {
     <div class="hero">
       <div><span class="capsule" aria-hidden="true"></span>
         <p class="display mark" aria-hidden="true">Chicago<br>Restaurants:<br>Ranked</p>
-        <h1>Search Chicago restaurant grades</h1>
-        <p class="tag">Food map &amp; our A–F grades</p>
-        <p class="lede">Nearly every restaurant, café and tavern the City of Chicago inspects, graded and ranked${ilN != null && towns != null ? `, plus ${n(ilN)} restaurants in ${n(towns)} more Illinois towns` : ", plus restaurants across the rest of Illinois"}.</p>
+        <h1>Search Chicago restaurant rankings</h1>
+        <p class="tag">Food map &amp; our rankings</p>
+        <p class="lede">Nearly every restaurant, café and tavern the City of Chicago inspects, ranked on inspections, years open and honors${ilN != null && towns != null ? `, plus ${n(ilN)} restaurants in ${n(towns)} more Illinois towns` : ", plus restaurants across the rest of Illinois"}.</p>
       </div>
-      <aside class="scale" aria-labelledby="scale-h"><h2 id="scale-h">Our grade</h2>
-        <ol>${L.GRADES_ORDER.map((g) => `<li>${gradeChip(g)}${{ A: "<span>Highest</span>", F: "<span>Lowest</span>" }[g] || ""}</li>`).join("")}</ol>
-        <p><span class="long">Our 0–100 score and A–F grade, calculated from City of Chicago inspection records since January 2023. Not official City grades: the City reports Pass, Pass w/ Conditions or Fail.</span><span class="short">Our grades from City inspection records, not official City grades.</span> <a href="#/about">How it works</a></p>
+      <aside class="scale" aria-labelledby="scale-h"><h2 id="scale-h">Our Ranked score</h2>
+        <ol>${L.SCORE_BANDS.map(([from], k) => `<li>${scoreChip(k === 0 ? 100 : from)}${{ 0: "<span>Highest</span>", 4: "<span>Lowest</span>" }[k] || ""}</li>`).join("")}</ol>
+        <p><span class="long">Our 0–100 Ranked score: where a place's City inspection record (40%), years open (30%) and hand-checked honors (30%) put it among Chicago restaurants. Not an official City grade.</span><span class="short">${esc(SCORES_CAPTION)}</span> <a href="#/about">How it works</a></p>
       </aside>
     </div>
     <h2 class="sr">Lists</h2>
     <ul role="list" class="cards">${cards}</ul>
-    <button class="btn surprise" type="button" id="surprise">${icon("dice")}<span>Surprise me with an A-grade spot</span></button>
-    <p class="home-fine">Grades are ours, calculated from City of Chicago inspection records, not official City grades. Every list is built from public records: City inspections and licenses, the Cook County Assessor and hand-checked honors.</p>
+    <button class="btn surprise" type="button" id="surprise">${icon("dice")}<span>Surprise me with a top-ranked spot</span></button>
+    <p class="home-fine">Ranked scores are ours, not official City grades. Every list is built from public records: City inspections and licenses, the Cook County Assessor and hand-checked honors.</p>
     <p class="home-fine"><a href="#/about">See About for sources and disclaimers</a></p>
   </section>`;
   $("#surprise").onclick = () => {
@@ -665,8 +665,8 @@ function viewBoard(view, route) {
   const board = route.board;
   let f = filtersFromParams(route.params, "chicago");
   const B = L.BOARDS[board];
-  const title = () => (board === "cleanest" && f.cuisine && L.filtersEqual(f, L.newFilters({ cuisine: f.cuisine })) ? f.cuisine : B.title);
-  // the Hot Dogs & Beef card narrows Cleanest by cuisine; picking a chip shows that whole board, not a hidden filter
+  const title = () => (board === "top" && f.cuisine && L.filtersEqual(f, L.newFilters({ cuisine: f.cuisine })) ? f.cuisine : B.title);
+  // the Hot Dogs & Beef card narrows Top Ranked by cuisine; picking a chip shows that whole board, not a hidden filter
   const chipFilters = () => (L.filtersEqual(f, L.newFilters({ cuisine: L.HOT_DOG_CUISINE })) ? L.newFilters() : f);
   const chips = () => L.BOARD_IDS.map((id) => `<a href="${boardHash(id, chipFilters())}"${id === board ? ' aria-current="page"' : ""}>${icon(L.BOARDS[id].icon)}<span>${esc(L.BOARDS[id].short)}</span></a>`).join("");
   view.innerHTML = `<section class="view board">
@@ -677,7 +677,7 @@ function viewBoard(view, route) {
         <div class="countline"><p class="n" id="bcount" aria-live="polite"></p><span class="spacer"></span>
           ${B.negative ? "" : `<button class="linkbtn m-only" type="button" id="binfo" aria-expanded="${state.showInfo}" aria-controls="bexp">${icon("info")}<span>${state.showInfo ? "Hide how it's ranked" : "How it's ranked"}</span></button>`}
           <span id="bfbtn" class="m-only"></span></div>
-        ${board !== "honors" ? `<p class="cap">${GRADES_CAPTION}</p>` : ""}
+        <p class="cap">${B.inspection ? "Inspection scores are ours, from City inspection records, not official City scores." : SCORES_CAPTION}</p>
         ${L.NOTES[board] ? `<p class="cap">${esc(L.NOTES[board])}</p>` : ""}
         ${skipToFilters("bpanel")}
       </div>
@@ -817,10 +817,10 @@ function viewSearch(view, route) {
     if (needIL && !state.il) {
       // while it loads, the header keeps the shape it will have, so the list doesn't jump down when the data lands (SEO8-07):
       // a placeholder count (hidden from screen readers; the loading line below is the one they hear), the Filters button and,
-      // for Rest of Illinois, its caption, which never changes (no place there has a grade)
+      // for Rest of Illinois, its caption, which never changes (no place there has a Ranked score)
       const loading = !state.ilError, ilCap = loading && !near && scope === "illinois";
       setCount(loading ? `<span aria-hidden="true">Loading…</span>` : ""); $("#sfbtn").innerHTML = loading ? filterButton(f, state.filtersOpen) : "";
-      $("#scap").hidden = !ilCap; $("#scap").textContent = ilCap ? "No grades outside Chicago: the City inspects only Chicago restaurants." : "";
+      $("#scap").hidden = !ilCap; $("#scap").textContent = ilCap ? NO_SCORES_IL : "";
       $("#sbody").innerHTML = state.ilError ? ilErrorHTML() : ilLoadingHTML();
       // once it's in (or has failed), draw again; a failure stays put until Try again, so this never loops
       if (!state.ilError) afterIllinois(() => { ctx = read(parseHash()); draw(); });
@@ -862,11 +862,11 @@ function viewSearch(view, route) {
     const closestNote = closest.length && !places.length && !pendingOrder ? `<span class="sr"> · no exact match, ${plural(closest.length, "closest match", "closest matches")} below</span>` : "";
     setCount(`${count}${L.activeCount(f) ? " <span>· filtered</span>" : ""}${closestNote}`);
     setShowCount(panel, listed ? total : null);
-    const hasGrades = places.some((p) => p.grade != null) || closest.some((p) => p.grade != null);
+    const hasGrades = places.some((p) => p.ranked != null) || closest.some((p) => p.ranked != null);
     let cap = null;
-    if (near && point) cap = (L.chicagoOnly(f) ? "Chicago places within 50 miles (your filters use City records)." : "Chicago and the rest of Illinois, within 50 miles.") + (hasGrades ? " " + GRADES_CAPTION : "");
-    else if (hasGrades) cap = GRADES_CAPTION;
-    else if (scope === "illinois" && !near) cap = "No grades outside Chicago: the City inspects only Chicago restaurants.";
+    if (near && point) cap = (L.chicagoOnly(f) ? "Chicago places within 50 miles (your filters use City records)." : "Chicago and the rest of Illinois, within 50 miles.") + (hasGrades ? " " + SCORES_CAPTION : "");
+    else if (hasGrades) cap = SCORES_CAPTION;
+    else if (scope === "illinois" && !near) cap = NO_SCORES_IL;
     $("#scap").hidden = !cap; $("#scap").textContent = cap || "";
     // the other side of the search (otherSide), for typed words once this side's list is settled: with no exact match here,
     // worked out now (it's part of the panel); under a list, from what's already worked out, or after the list has painted
@@ -934,7 +934,7 @@ function viewSearch(view, route) {
       html += `<p class="note">Search nearly every Chicago restaurant by name, street, cuisine, neighborhood or ZIP${ilN != null ? `. Or switch to Rest of Illinois to search ${n(ilN)} restaurants in ${n(towns)} more towns` : ""}.</p>`;
       html += `<h2 class="flabel">Try</h2><ul role="list" class="try">${TRY.map((s) => `<li><a href="${searchHash({ q: s })}">${icon("search")}${esc(s)}</a></li>`).join("")}</ul>`;
     } else {
-      html += `<p class="note">${ilN != null ? `Search ${n(ilN)} restaurants in ${n(towns)} more Illinois towns. ` : ""}No grades outside Chicago: the City inspects only Chicago restaurants. Switch to Chicago to search Chicago restaurants.</p>`;
+      html += `<p class="note">${ilN != null ? `Search ${n(ilN)} restaurants in ${n(towns)} more Illinois towns. ` : ""}${NO_SCORES_IL} Switch to Chicago to search Chicago restaurants.</p>`;
       html += `<h2 class="flabel">Biggest towns</h2><ul role="list" class="try">${d.cities.slice(0, 12).map((c) => `<li><a href="${searchHash({ q: c, scope: "illinois" })}">${icon("building")}${esc(c)}</a></li>`).join("")}</ul>`;
     }
     html += `<p class="note">Or browse the <a href="#/">rankings</a> or the <a href="${mapHash(scope, null)}">map</a>.</p>`;
@@ -1010,17 +1010,20 @@ function viewPlace(view, route) {
       ${state.saved.has(route.id) ? `<p class="cap">It's still in your Saved places, so it comes back there if a later update lists it again.</p>` : ""}</div></section>`;
     return;
   }
-  // no grade in the title: tabs, history and bookmarks show it without the "ours, not official" wording
+  // no score in the title: tabs, history and bookmarks show it without the "ours, not official" wording
   document.title = `${p.name} · ${p.placeLine} | Chi Ranked`;
   const saved = state.saved.has(p.id);
   const maps = L.mapsLink(p);
   let head = `<span class="kicker">${esc(p.placeLine)}</span><h1 class="pname">${esc(p.name)}</h1>
     <p class="paddr">${esc([p.addr, p.cuisine].filter((x) => x != null).join(" · "))}</p>${badgesHTML(p)}`;
   if (p.isChicago) {
-    if (p.grade && p.score != null) {
-      head += `<div class="pgrade">${gradeChip(p.grade)}<div><b>Inspection score ${p.score}/100</b><span>Our grade from City of Chicago inspection records, not an official city grade.</span></div></div>`;
+    if (p.ranked != null) {
+      const of = L.rankedOf(d.chicago);
+      head += `<div class="pgrade">${scoreChip(p.ranked)}<div><b>Ranked score ${p.ranked}</b>`
+        + (p.rank != null && of > 0 ? `<em>#${L.Fmt.number(p.rank)} of ${L.Fmt.number(of)} Chicago restaurants</em>` : "")
+        + `<span>${esc(L.RANKED_SHORT)}</span></div></div>`;
     } else {
-      head += `<p class="pnograde">No grade yet: no completed inspections since January 2023.${p.risk === 3 ? " The city inspects low-risk places about every two years." : ""}</p>`;
+      head += `<p class="pnograde">Not ranked yet: too few public records about this place (no opening year and no honors).</p>`;
     }
   }
   if (state.geo.point && p.lat != null) {
@@ -1036,7 +1039,14 @@ function viewPlace(view, route) {
   ].join("");
   let body = "";
   if (p.isChicago) {
-    let insp = `<dl class="kv">` + kv("Inspections", L.Fmt.number(p.visits ?? 0)) + kv("Failed", L.Fmt.number(p.fails ?? 0))
+    if (p.ranked != null) {
+      let how = `<dl class="kv">` + kv("Inspection record (40%)", p.insp != null ? `Inspection score ${p.insp}/100` : "No inspections since Jan 2023: counts as average")
+        + kv("Years open (30%)", L.yearsPart(p, d.recordsYear)) + kv("Honors (30%)", L.honorsPart(p)) + `</dl>`;
+      if (p.rankCap != null) how += noteP(L.RANK_CAPS[p.rankCap].note);
+      how += noteP(`Each part is compared with other Chicago restaurants, and a part we don't have counts as average. ${L.rankedMeaning(p.ranked)} Ours, from public records, not an official City grade.`);
+      body += section("Ranked score · how it's made", how);
+    }
+    let insp = `<dl class="kv">` + (p.insp != null ? kv("Inspection score (recent visits count more)", `${p.insp}/100`) : "") + kv("Inspections", L.Fmt.number(p.visits ?? 0)) + kv("Failed", L.Fmt.number(p.fails ?? 0))
       + kv("Passed with conditions", L.Fmt.number(p.passCond ?? 0)) + kv("Violations per visit", L.perVisit(p.violPer))
       + kv("Serious food-safety violations per visit", L.perVisit(p.seriousPer)) + kv("Pest citations (rodents or insects)", L.Fmt.number(p.pests ?? 0))
       + kv("Complaint-triggered inspections", L.Fmt.number(p.complaints ?? 0)) + `</dl>`;
@@ -1045,11 +1055,11 @@ function viewPlace(view, route) {
     insp += `<dl class="kv">` + kv(p.newerResult == null ? "Last city inspection" : "Last inspection in our records", `${L.Fmt.date(p.lastDate)} · ${L.Fmt.result(p.lastResult)}`) + `</dl>`;
     if (p.newerResult != null && p.newerDate != null) {
       insp += `<div class="newer"><dl class="kv">${kv("Newer City result", `${L.Fmt.result(p.newerResult)}, ${L.Fmt.date(p.newerDate)}`)}</dl>`
-        + noteP(`It's after our records date (${L.Fmt.date(d.recordsThrough)}), so it isn't in our score or grade yet.`) + `</div>`;
+        + noteP(`It's after our records date (${L.Fmt.date(d.recordsThrough)}), so it isn't in our scores yet.`) + `</div>`;
     }
     insp += `<dl class="kv">` + kv("City risk category", p.risk != null ? ["", "High", "Medium", "Low"][Math.min(Math.max(p.risk, 0), 3)] : "—") + `</dl>`;
     insp += noteP("Risk category is how often the City schedules inspections, based on the kind of food handling (High = most often). It is not a safety rating.");
-    insp += noteP(`Source: City of Chicago Food Inspections, records through ${L.Fmt.date(d.recordsThrough)}. License #${p.id}. Scores weigh failed inspections, pest citations, serious violations, violations per visit, passes with conditions and whether the last visit failed; places with few visits are pulled toward the city average. Our score and grade are not official.`);
+    insp += noteP(`Source: City of Chicago Food Inspections, records through ${L.Fmt.date(d.recordsThrough)}. License #${p.id}. The inspection score weighs failed inspections, pest citations, serious violations, violations per visit, passes with conditions and whether the last visit failed, with recent visits counting more; places with few visits are pulled toward the city average. Our score, not an official one.`);
     insp += `<div class="extlinks"><a href="${esc(L.cityRecordsURL(p.id))}" target="_blank" rel="noopener">${icon("external")}City inspection records<span class="sr"> (opens in a new tab)</span></a>`
       + `<a href="${esc(L.reportURL(p))}">${icon("mail")}Report a problem with this listing</a></div>`;
     body += section("Health inspections · since Jan 2023", insp);
@@ -1079,7 +1089,7 @@ function viewPlace(view, route) {
     body += section("Listing", `<dl class="kv">` + kv("Town", p.city) + (p.zip != null ? kv("ZIP", p.zip) : "") + kv("Cuisine", p.cuisine)
       + kv("Locations in Illinois", p.chain >= 2 ? L.Fmt.number(p.chain) : "This one only")
       + (p.venue ? kv("Kind of place", "Not mainly a restaurant (gas station, grocery counter, gaming café or similar)") : "") + `</dl>`
-      + noteP("Outside Chicago there's no public statewide inspection data, so this place has no grade. It comes from Overture Maps listings, which can include places that have closed. In a check against Chicago's records, about 7 in 10 of these listings matched a restaurant the City currently inspects. Check before you go.")
+      + noteP("Outside Chicago there's no public statewide inspection data, so this place has no Ranked score. It comes from Overture Maps listings, which can include places that have closed. In a check against Chicago's records, about 7 in 10 of these listings matched a restaurant the City currently inspects. Check before you go.")
       + `<div class="extlinks"><a href="${esc(L.reportURL(p))}">${icon("mail")}Report a problem with this listing</a></div>`);
   }
   view.innerHTML = `<article class="view place"><div class="pgrid">
@@ -1147,7 +1157,7 @@ function viewSaved(view) {
   }
   if (!places.length && !unknownIL) html += `<div class="empty">${icon("bookmark")}<h2>No saved places yet</h2><p>Tap Save on any restaurant to keep it here. Saved places stay in this browser.</p><div class="row"><a class="btn solid" href="#/">Browse the rankings</a></div></div>`;
   else if (places.length) {
-    if (places.some((p) => p.grade != null || p.score != null)) html += `<p class="cap">${GRADES_CAPTION}</p>`;
+    if (places.some((p) => p.ranked != null)) html += `<p class="cap">${SCORES_CAPTION}</p>`;
     html += `<ol role="list" class="rlist">${places.map((p) => searchRow(p, state.geo.point ? L.distance(p, state.geo.point) : null,
       `<button class="linkbtn srm" type="button" data-remove="${esc(p.id)}" aria-label="Remove ${esc(p.name)} from Saved">Remove</button>`)).join("")}</ol>`;
     html += `<p class="cap">Saved places stay in this browser. Nothing is sent anywhere.</p>`;
@@ -1175,14 +1185,17 @@ function viewAbout(view) {
     <span class="kicker">About</span>
     <h1 class="h1">Chicago Restaurants: Ranked</h1>
     <p class="strong">Independent app. Not affiliated with or endorsed by the City of Chicago, the Chicago Department of Public Health or Cook County.</p>
-    <p>Nearly every restaurant, bakery, café and tavern the City of Chicago inspects, ranked on public records: health inspections, licenses, property values and honors. Plus a directory of restaurants across the rest of Illinois.</p>
+    <p>Nearly every restaurant, bakery, café and tavern the City of Chicago inspects, ranked on public records: City inspections, years open from City licenses and inspections, and hand-checked honors. Plus a directory of restaurants across the rest of Illinois.</p>
     <p>This is the web version of the free iPhone and iPad app, reading the same data.</p>
     <section><h2>Independent app</h2>
       <p>Chicago Restaurants: Ranked (“Chi Ranked”) is an independent app by Nicholas Soderstrom. It is not affiliated with, endorsed by or operated by the City of Chicago, the Chicago Department of Public Health or Cook County.</p></section>
-    <section><h2>Our grades</h2>
-      <p>The 0–100 inspection score and A–F grade are calculated by this app from City of Chicago food inspection records since January 2023. They are our assessment, not official City of Chicago grades. The City reports each inspection as Pass, Pass w/ Conditions or Fail and does not issue letter grades. An inspection describes conditions on the day of the visit. For the official record, tap “City inspection records” on any Chicago place.</p>
-      <p>The score weighs failed inspections, pest citations, serious food-safety violations, violations per visit, passes with conditions, and whether the last visit failed. Places with few inspections are pulled toward the city average. An F needs a failed inspection or pests; an A needs no failures.</p>
-      <p class="fine">Each ranking explains how it's built under “How it's ranked”. <a href="../chicago-restaurant-grades.html">More on what the grades mean</a>.</p></section>
+    <section><h2>How we rank</h2>
+      <p>Each Chicago place’s Ranked score, 0–100, is calculated by this app from public records. It is our assessment, not an official City of Chicago grade. The City reports each inspection as Pass, Pass w/ Conditions or Fail and does not issue grades or scores. For the official record, open “City inspection records” on any Chicago place.</p>
+      <p>The score blends three parts, each compared with other Chicago restaurants: inspection record (40%), years open (30%) and honors (30%). A part we don’t have counts as average, and inspections alone never rank a place: it needs an opening year or an honor. The score is where the blend falls among Chicago restaurants: 85 means it ranks above 85% of them.</p>
+      <p>Inspection record: our 0–100 inspection score from City of Chicago food inspections since January 2023. It weighs failed inspections, pest citations, serious food-safety violations, violations per visit, passes with conditions, and whether the last visit failed. Recent visits count more (one a year old counts half), and places with few inspections are pulled toward the city average. An inspection describes conditions on the day of the visit.</p>
+      <p>Years open: how long the place has been at its address, from verified histories or the earliest City license or inspection record. A chain store’s (5+ Chicago locations) count half. Honors: Michelin stars, Bib Gourmand and Green Star, James Beard awards and America’s Classics, our hand-checked list of Chicago icons, other hand-checked honors and published sales; the strongest counts most.</p>
+      <p>Inspections still cap the score: a failed latest inspection holds a place to 50, and a failed inspection or pest citation in the past year to 80.</p>
+      <p class="fine">Each ranking explains how it's built under “How it's ranked”. <a href="../chicago-restaurant-grades.html">More on how we rank</a>.</p></section>
     <section><h2>City of Chicago</h2>
       <p class="fine">This site provides applications using data that has been modified for use from its original source, www.cityofchicago.org, the official website of the City of Chicago. The City of Chicago makes no claims as to the content, accuracy, timeliness, or completeness of any of the data provided at this site. The data provided at this site is subject to change at any time. It is understood that the data provided at this site is being used at one’s own risk.</p>
       <p class="fine">Data used: Food Inspections (data.cityofchicago.org, dataset 4ijn-s7e5) and Business Licenses (datasets r5kz-chrr and uupf-x98q)${through ? `, records through ${esc(through)}` : ""}.</p>
@@ -1269,10 +1282,15 @@ async function drawLocator(cv, p) {
   }
   const [x, y] = X(p.lon, p.lat);
   c.beginPath(); c.arc(x, y, 9, 0, Math.PI * 2); c.fillStyle = "rgba(204,52,51,.18)"; c.fill();
-  c.beginPath(); c.arc(x, y, 5.5, 0, Math.PI * 2); c.fillStyle = p.grade ? GRADE_FILL[p.grade] : MUTED; c.fill(); c.lineWidth = 2; c.strokeStyle = "#fff"; c.stroke();
+  c.beginPath(); c.arc(x, y, 5.5, 0, Math.PI * 2); c.fillStyle = dotFill(p); c.fill(); c.lineWidth = 2; c.strokeStyle = dotRing(p); c.stroke();
 }
 
 // ------------------------------------------------------------------------------------------------ map (MapTab.swift, drawn on a canvas)
+// a dot's fill is its Ranked score band (gray: not ranked); the pale bands get a dark ring, so they show on the pale map
+const dotFill = (p) => (p.ranked != null ? L.scoreBand(p.ranked).fill : MUTED);
+const dotText = (p) => (p.ranked != null ? L.scoreBand(p.ranked).text : "#fff");
+const PALE = new Set(L.SCORE_BANDS.filter((b) => b[2] !== "#FFFFFF").map((b) => b[1]));
+const dotRing = (p) => (PALE.has(dotFill(p)) ? "rgba(11,29,69,.55)" : "rgba(255,255,255,.95)");
 function viewMap(view, route) {
   const d = D();
   const scope = route.params.get("scope") === "illinois" ? "illinois" : "chicago";
@@ -1287,12 +1305,12 @@ function viewMap(view, route) {
   document.title = `Map · ${scope === "chicago" ? "Chicago" : "Rest of Illinois"} | Chi Ranked`;
   const places = (scope === "chicago" ? d.chicago : d.illinois).filter((p) => L.passes(f, p) && p.lat != null && p.lon != null);
   const legend = scope === "chicago"
-    ? `${plural(places.length, "place", "places")}. Dot color = our A–F grade from City inspection records (not official). Gray = no grade.`
-    : `${n(places.length)} map ${places.length === 1 ? "listing" : "listings"}. No inspection data outside Chicago, so no grades.`;
+    ? `${plural(places.length, "place", "places")}. Dot color = our Ranked score from public records (not official); deeper green = higher. Dark gray = not ranked.`
+    : `${n(places.length)} map ${places.length === 1 ? "listing" : "listings"}. No City records outside Chicago, so no Ranked scores.`;
   view.innerHTML = `<section class="view mapview">
     <h1 class="sr">Map of ${scope === "chicago" ? "Chicago" : "the rest of Illinois"}</h1>
     <div class="mhead"><div class="legend"><p style="margin:0">${esc(legend)}</p>
-      ${scope === "chicago" ? `<ul class="keys" aria-hidden="true">${L.GRADES_ORDER.map((g) => `<li><i style="background:${GRADE_FILL[g]}"></i>${g}</li>`).join("")}<li><i style="background:${MUTED}"></i>No grade</li></ul>` : ""}</div>
+      ${scope === "chicago" ? `<ul class="keys" aria-hidden="true">${L.SCORE_BANDS.map(([from, fill], k) => `<li><i style="background:${fill}${PALE.has(fill) ? ";box-shadow:inset 0 0 0 1px rgba(11,29,69,.55)" : ""}"></i>${k === 0 ? "90+" : `${from}–${L.SCORE_BANDS[k - 1][0] - 1}`}</li>`).join("")}<li><i style="background:${MUTED}"></i>Not ranked</li></ul>` : ""}</div>
       ${filterButton(f, state.filtersOpen)}</div>
     <div class="fpanel" id="mpanel"${state.filtersOpen ? "" : " hidden"}>${filtersPanel(scope, f, { count: places.length })}</div>
     <div class="mapbox" id="mapbox">
@@ -1336,9 +1354,8 @@ function viewMap(view, route) {
   const kx = Math.cos(LAT0[scope] * Math.PI / 180);
   const xs = new Float64Array(places.length), ys = new Float64Array(places.length);
   places.forEach((p, i) => { xs[i] = p.lon * kx; ys[i] = -p.lat; });
-  // draw order: no grade first, then A to F, so every graded dot is drawn over the gray ones
-  const order = { A: 1, B: 2, C: 3, D: 4, F: 5 };
-  const idx = places.map((_, i) => i).sort((a, b) => (order[places[a].grade] || 0) - (order[places[b].grade] || 0));
+  // draw order: not ranked first, then lowest score to highest, so the best-ranked dots are drawn on top
+  const idx = places.map((_, i) => i).sort((a, b) => (places[a].ranked ?? -1) - (places[b].ranked ?? -1) || a - b);
   let shapes = null, W = 0, H = 0, dpr = 1, kFit = 1, cam = null, raf = 0;
   const fit = () => {
     const [bx0, by0, bx1, by1] = BOUNDS[scope];
@@ -1406,27 +1423,27 @@ function viewMap(view, route) {
     const x0 = (-pad - cam.x) / cam.k, x1 = (W + pad - cam.x) / cam.k, y0 = (-pad - cam.y) / cam.k, y1 = (H + pad - cam.y) / cam.k;
     let color = null, shown = 0;
     if (r < 8) {         // zoomed out: one path per color
-      const flush = () => { if (color) { c.fillStyle = color; c.fill(); if (r >= 3) { c.lineWidth = r >= 6 ? 1.5 : 1; c.strokeStyle = "rgba(255,255,255,.95)"; c.stroke(); } } };
+      const flush = () => { if (color) { c.fillStyle = color; c.fill(); if (r >= 3 || PALE.has(color)) { c.lineWidth = r >= 6 ? 1.5 : 1; c.strokeStyle = PALE.has(color) ? "rgba(11,29,69,.55)" : "rgba(255,255,255,.95)"; c.stroke(); } } };
       c.beginPath();
       for (const i of idx) {
         const X0 = xs[i], Y0 = ys[i];
         if (X0 < x0 || X0 > x1 || Y0 < y0 || Y0 > y1) continue;
-        const col = places[i].grade ? GRADE_FILL[places[i].grade] : MUTED;
+        const col = dotFill(places[i]);
         if (col !== color) { flush(); c.beginPath(); color = col; }
         const x = X0 * cam.k + cam.x, y = Y0 * cam.k + cam.y;
         c.moveTo(x + r, y); c.arc(x, y, r, 0, 6.2832);
         shown++;
       }
       flush();
-    } else {             // zoomed in: each dot with its grade letter, like the app's pins (few are on screen by now)
-      c.font = `900 ${Math.round(r * 1.15)}px "Avenir Next Condensed", "Arial Narrow", sans-serif`; c.textAlign = "center"; c.textBaseline = "middle";
-      c.lineWidth = 1.5; c.strokeStyle = "rgba(255,255,255,.95)";
+    } else {             // zoomed in: each dot with its Ranked score, like the app's pins (few are on screen by now)
+      c.font = `900 ${Math.round(r * 0.95)}px "Avenir Next Condensed", "Arial Narrow", sans-serif`; c.textAlign = "center"; c.textBaseline = "middle";
+      c.lineWidth = 1.5;
       for (const i of idx) {
         const X0 = xs[i], Y0 = ys[i];
         if (X0 < x0 || X0 > x1 || Y0 < y0 || Y0 > y1) continue;
         const p = places[i], x = X0 * cam.k + cam.x, y = Y0 * cam.k + cam.y;
-        c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fillStyle = p.grade ? GRADE_FILL[p.grade] : MUTED; c.fill(); c.stroke();
-        if (p.grade) { c.fillStyle = GRADE_TEXT[p.grade]; c.fillText(p.grade, x, y + 0.5); }
+        c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fillStyle = dotFill(p); c.fill(); c.strokeStyle = dotRing(p); c.stroke();
+        if (p.ranked != null) { c.fillStyle = dotText(p); c.fillText(String(p.ranked), x, y + 0.5); }
         shown++;
       }
     }
@@ -1439,9 +1456,9 @@ function viewMap(view, route) {
     const sel = state.mapSel;
     if (sel && sel.lat != null) {       // the selected place again on top, ringed
       const [x, y] = X(sel.lon, sel.lat);
-      c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fillStyle = sel.grade ? GRADE_FILL[sel.grade] : MUTED; c.fill();
-      c.lineWidth = 1.5; c.strokeStyle = "#fff"; c.stroke();
-      if (sel.grade && r >= 8) { c.fillStyle = GRADE_TEXT[sel.grade]; c.fillText(sel.grade, x, y + 0.5); }
+      c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fillStyle = dotFill(sel); c.fill();
+      c.lineWidth = 1.5; c.strokeStyle = dotRing(sel); c.stroke();
+      if (sel.ranked != null && r >= 8) { c.fillStyle = dotText(sel); c.fillText(String(sel.ranked), x, y + 0.5); }
       c.beginPath(); c.arc(x, y, r + 7, 0, 6.2832); c.lineWidth = 3; c.strokeStyle = "#CC3433"; c.stroke();
     }
     if (state.geo.point) {
@@ -1493,8 +1510,8 @@ function viewMap(view, route) {
       state.mapSel = p[0]; state.mapStack = p;
       const more = p.length - 8;
       card.innerHTML = `<div class="mtop"><div><h2>${n(p.length)} places here</h2><p>Drawn on top of each other on the map.</p></div><button class="close" type="button" aria-label="Close">${icon("close")}</button></div>
-        <ul role="list" class="mstack">${p.slice(0, 8).map((x) => `<li><a href="${placeHref(x)}">${x.grade ? gradeChip(x.grade, "gt") : `<span class="tile">${icon("fork")}</span>`}<span>${esc(x.name)}${x.score != null ? ` <small>${x.score}</small>` : ""}</span></a></li>`).join("")}</ul>
-        ${more > 0 ? `<p class="cap">and ${n(more)} more. Zoom in to see them apart.</p>` : ""}${p.some((x) => x.grade) ? `<p class="cap">Our grades from City inspection records, not official City grades.</p>` : ""}`;
+        <ul role="list" class="mstack">${p.slice(0, 8).map((x) => `<li><a href="${placeHref(x)}">${x.ranked != null ? scoreChip(x.ranked, "gt") : `<span class="tile">${icon("fork")}</span>`}<span>${esc(x.name)}</span></a></li>`).join("")}</ul>
+        ${more > 0 ? `<p class="cap">and ${n(more)} more. Zoom in to see them apart.</p>` : ""}${p.some((x) => x.ranked != null) ? `<p class="cap">${SCORES_CAPTION}</p>` : ""}`;
       card.hidden = false; box.classList.add("carded");
       card.querySelector(".close").onclick = () => { showCard(null); cv.focus(); };
       keepVisible(p[0]);
@@ -1503,10 +1520,10 @@ function viewMap(view, route) {
     }
     state.mapSel = p; state.mapStack = null;
     if (!p) { card.hidden = true; box.classList.remove("carded"); schedule(); return; }
-    const sub = p.grade ? `Grade ${p.grade} · ${p.score ?? 0}/100` : p.cuisine;
-    card.innerHTML = `<div class="mtop">${p.grade ? gradeChip(p.grade, "gt") : `<span class="tile">${icon("fork")}</span>`}<div><h2>${esc(p.name)}</h2><p>${esc(sub)}</p><p>${esc([p.addr, p.placeLine].filter((x) => x != null).join(" · "))}</p></div>
+    const sub = p.ranked != null ? `Ranked score ${p.ranked}` + (p.insp != null ? ` · inspection ${p.insp}` : "") : p.cuisine;
+    card.innerHTML = `<div class="mtop">${p.ranked != null ? scoreChip(p.ranked, "gt") : `<span class="tile">${icon("fork")}</span>`}<div><h2>${esc(p.name)}</h2><p>${esc(sub)}</p><p>${esc([p.addr, p.placeLine].filter((x) => x != null).join(" · "))}</p></div>
       <button class="close" type="button" aria-label="Close">${icon("close")}</button></div>
-      ${p.grade ? `<p class="cap" style="margin-top:6px">Our grade from City inspection records, not an official City grade.</p>` : ""}
+      ${p.ranked != null ? `<p class="cap" style="margin-top:6px">${esc(L.RANKED_SHORT)}</p>` : ""}
       <div class="row"><a class="btn solid small" href="${placeHref(p)}">Open place</a>${L.mapsLink(p) ? `<a class="btn small" href="${esc(L.mapsLink(p))}" target="_blank" rel="noopener">Directions<span class="sr"> (opens in a new tab)</span></a>` : ""}</div>`;
     card.hidden = false; box.classList.add("carded");
     card.querySelector(".close").onclick = () => { showCard(null); cv.focus(); };

@@ -1,16 +1,17 @@
 # Chicago Restaurants: Ranked
 
-A free iPhone and iPad app ("Chi Ranked" on your home screen) that turns the City of Chicago's food inspection records
-into a 0–100 score and an A–F grade for Chicago restaurants, with rankings, a map, search and saved places.
+A free iPhone and iPad app ("Chi Ranked" on your home screen) that ranks Chicago restaurants with a 0–100 Ranked score
+from public records (City of Chicago inspections, years open and hand-checked honors), with rankings, a map, search and
+saved places.
 
 - App Store: https://apps.apple.com/app/id6816931379
 - Website: https://chicago.eatsranked.com/
 - Search on the web (the web version): https://chicago.eatsranked.com/explore/
-- How the grades are calculated: https://chicago.eatsranked.com/chicago-restaurant-grades.html
+- How the Ranked score is calculated: https://chicago.eatsranked.com/chicago-restaurant-grades.html
 - More states: https://eatsranked.com/
 - Privacy: the app collects no data. No account, no analytics, no ads. Location is optional and stays on your device.
 
-The grade is calculated by the app from public records. It is not an official City of Chicago grade, and this project is
+The score is calculated by the app from public records. It is not an official City of Chicago grade, and this project is
 not affiliated with the City of Chicago, Cook County, the Michelin Guide or the James Beard Foundation.
 
 ## Support

@@ -13,8 +13,8 @@ names the site for a shared link (og:site_name). Also /.well-known/security.txt 
 site.webmanifest (no bare "A–F health grades" there either).
 The data pages (lists/, neighborhoods/, cuisines/; playbook/tools/static_pages.mjs writes them from data/v1) get data_pages():
 the site-wide checks, title 50–60 and description 140–160 characters on every indexed one (as PAGES), every place they
-link in the published data, the intro's counts and each row's grade and latest result against that data, the area and
-cuisine order, noindex exactly when fewer than 20 places have a grade, and the
+link in the published data, the intro's counts and each row's Ranked score and latest result against that data (and no
+letter grade on any row), the area and cuisine order, noindex exactly when fewer than 20 places have a Ranked score, and the
 sitemap, the index pages' links and the folders on disk (DOCS, default docs/ beside playbook/) naming the same pages, with
 each data page's sitemap lastmod the day the data went live (the manifest's "published", as a Chicago day)."""
 import json, re, sys, urllib.request, urllib.error, html, hashlib, datetime as dt
@@ -257,7 +257,7 @@ for page in PAGES:
 # ---- the data pages: written from data/v1 by playbook/tools/static_pages.mjs, so checked against the same data
 GEN = ("lists/", "neighborhoods/", "cuisines/")
 DOCS = os.environ.get("DOCS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs")
-THIN, ROWS = 20, 100                 # static_pages.mjs: noindex under THIN graded places; at most ROWS rows a page
+THIN, ROWS, TOP = 20, 100, 80        # static_pages.mjs: noindex under THIN ranked places; at most ROWS rows a page; "80 or higher"
 CHICAGO = ZoneInfo("America/Chicago")
 def chicago_day(stamp):
     """The America/Chicago calendar day (YYYY-MM-DD) of the manifest's "published" UTC time, or None: the day the data went
@@ -296,10 +296,10 @@ def chicago_places():
         if not isinstance(r, list) or s(r, "id") is None or s(r, "name") is None: continue
         nr, nd = s(r, "newerResult"), s(r, "newerDate")
         newer = nr is not None and nd is not None and nd > rt
-        g = s(r, "grade"); sc = num(r, "score")
+        rk, ins = num(r, "ranked"), num(r, "insp")
         out[s(r, "id")] = {"hood": pick(meta.get("hoods") or [], num(r, "hood")), "venue": bool(num(r, "venue") and int(num(r, "venue"))),
                            "cuisine": pick(meta.get("cuisines") or [], num(r, "cuisine")) or "American & Other",
-                           "grade": g if g in ("A", "B", "C", "D", "F") else None, "score": int(sc) if sc is not None else None,
+                           "ranked": int(rk) if rk is not None else None, "insp": int(ins) if ins is not None else None,
                            "lastDate": s(r, "lastDate"), "lastResult": s(r, "lastResult"),
                            "newerDate": nd if newer else None, "newerResult": nr if newer else None}
     return rt, day, out
@@ -378,8 +378,8 @@ def data_pages():
             if kind != "lists":
                 groups = by[kind]
                 want = {"places": sum(len(v) for v in groups.values()), kind if kind == "cuisines" else "areas": len(groups),
-                        "graded": sum(1 for v in groups.values() for i in v if shown[i]["grade"]),
-                        "A": sum(1 for v in groups.values() for i in v if shown[i]["grade"] == "A")}
+                        "ranked": sum(1 for v in groups.values() for i in v if shown[i]["ranked"] is not None),
+                        "top": sum(1 for v in groups.values() for i in v if (shown[i]["ranked"] or 0) >= TOP)}
                 for k, x in want.items():
                     if n.get(k) != x: bad(name, f"intro says {k} {n.get(k)}, the data has {x}")
                 if len(kids) != len(groups): bad(name, len(kids), "pages linked,", len(groups), kind, "in the data")
@@ -398,25 +398,26 @@ def data_pages():
             for i, (_, row) in zip(ids, rows):
                 q = places.get(i)
                 if not q or q["venue"]: bad(name, "row", i, "isn't a listed place"); continue
-                g = re.findall(r'class="g g([A-F])"', row)
-                if g and g != [q["grade"]]: bad(name, "row", i, "shows grade", g, "the data has", q["grade"])
+                g = [int(x) for x in re.findall(r'class="g gs[^"]*"><span class="sr">Ranked score </span>(\d+)</span>', row)]
+                if g and g != [q["ranked"]]: bad(name, "row", i, "shows Ranked score", g, "the data has", q["ranked"])
             continue
-        group = sorted(by[kind].get(label) or [], key=lambda i: -(shown[i]["score"] if shown[i]["score"] is not None else -1))
-        want = {"places": len(group), "graded": sum(1 for i in group if shown[i]["grade"])}
-        want.update({g: sum(1 for i in group if shown[i]["grade"] == g) for g in "ABCDF"} if want["graded"] else {})
+        group = sorted(by[kind].get(label) or [], key=lambda i: -(shown[i]["ranked"] if shown[i]["ranked"] is not None else -1))
+        want = {"places": len(group), "ranked": sum(1 for i in group if shown[i]["ranked"] is not None)}
+        if want["ranked"]: want["top"] = sum(1 for i in group if (shown[i]["ranked"] or 0) >= TOP)
         for k, x in want.items():
             if n.get(k) != x: bad(name, f"intro says {k} {n.get(k)}, the data has {x} for {label}")
-        if index != (want["graded"] >= THIN): bad(name, "indexed" if index else "noindex", "with", want["graded"], "graded places (the line is", THIN, ")")
+        if index != (want["ranked"] >= THIN): bad(name, "indexed" if index else "noindex", "with", want["ranked"], "ranked places (the line is", THIN, ")")
         if len(ids) != min(ROWS, len(group)) or ("shown" in n) != (len(group) > ROWS): bad(name, "rows", len(ids), "for", len(group), "places")
-        scores = [shown[i]["score"] if i in shown and shown[i]["score"] is not None else -1 for i in ids]
-        if scores != sorted(scores, reverse=True): bad(name, "rows aren't best score first")
+        scores = [shown[i]["ranked"] if i in shown and shown[i]["ranked"] is not None else -1 for i in ids]
+        if scores != sorted(scores, reverse=True): bad(name, "rows aren't highest Ranked score first")
         for i, (_, row) in zip(ids, rows):
             q = shown.get(i)
             if not q or (q["hood"] if kind == "neighborhoods" else q["cuisine"]) != label: bad(name, "row", i, "isn't a", label, "place"); continue
-            g = re.findall(r'class="g g([A-F])', row)
-            if g != ([q["grade"]] if q["grade"] else []): bad(name, "row", i, "shows grade", g, "the data has", q["grade"])
+            g = [int(x) for x in re.findall(r'class="g gs[^"]*"><span class="sr">Ranked score </span>(\d+)</span>', row)]
+            if g != ([q["ranked"]] if q["ranked"] is not None else []): bad(name, "row", i, "shows Ranked score", g, "the data has", q["ranked"])
+            if re.search(r'class="g g[A-F]\b', row): bad(name, "row", i, "shows a letter grade")
             lines = [html.unescape(x) for x in re.findall(r'<span class="rres">(.*?)</span>', row)]
-            exp = result_lines(q) if q["grade"] else ["No grade yet: no completed inspections since January 2023."] + (result_lines(q)[:1] if q["lastDate"] else [])
+            exp = result_lines(q) if q["insp"] is not None else ["No inspections since January 2023."] + (result_lines(q)[:1] if q["lastDate"] else [])
             if lines != exp: bad(name, "row", i, "says", lines, "the data says", exp)
     pages = {pg for pg, src in found.items() if src is not None}
     indexed = {pg for pg in pages if 'content="index,follow' in found[pg]}

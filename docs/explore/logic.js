@@ -399,13 +399,13 @@ export function nameMatch(p, q) {
 
 // ------------------------------------------------------------------------------------------------ Filters (Board.swift)
 export function newFilters(o = {}) {
-  return { sides: new Set(o.sides || []), hood: o.hood ?? null, cuisine: o.cuisine ?? null, grades: new Set(o.grades || []),
+  return { sides: new Set(o.sides || []), hood: o.hood ?? null, cuisine: o.cuisine ?? null, minRanked: o.minRanked ?? null,
     liquor: !!o.liquor, dineIn: !!o.dineIn, hideChains: !!o.hideChains, includeVenues: !!o.includeVenues, city: o.city ?? null, bib: !!o.bib };
 }
-export const activeCount = (f) => f.sides.size + (f.hood == null ? 0 : 1) + (f.cuisine == null ? 0 : 1) + f.grades.size + (f.liquor ? 1 : 0)
+export const activeCount = (f) => f.sides.size + (f.hood == null ? 0 : 1) + (f.cuisine == null ? 0 : 1) + (f.minRanked == null ? 0 : 1) + (f.liquor ? 1 : 0)
   + (f.dineIn ? 1 : 0) + (f.hideChains ? 1 : 0) + (f.includeVenues ? 1 : 0) + (f.city == null ? 0 : 1) + (f.bib ? 1 : 0);
 /** Filters that come from City records, so they leave out the rest of Illinois (Finder.near, SearchTab.caption). */
-export const chicagoOnly = (f) => f.grades.size > 0 || f.sides.size > 0 || f.hood != null || f.liquor || f.dineIn;
+export const chicagoOnly = (f) => f.minRanked != null || f.sides.size > 0 || f.hood != null || f.liquor || f.dineIn;
 export function passes(f, p) {
   if (!f.includeVenues && p.venue) return false;
   if (f.hideChains && p.isChain) return false;
@@ -414,7 +414,7 @@ export function passes(f, p) {
   if (p.isChicago) {
     if (f.sides.size && !f.sides.has(p.side ?? "")) return false;
     if (f.hood != null && p.hood !== f.hood) return false;
-    if (f.grades.size && !(p.grade != null && f.grades.has(p.grade))) return false;
+    if (f.minRanked != null && (p.ranked ?? -1) < f.minRanked) return false;
     if (f.liquor && p.liquor !== true) return false;
     if (f.dineIn && p.dineIn !== true) return false;
   } else if (f.city != null && p.city !== f.city) return false;
@@ -422,7 +422,7 @@ export function passes(f, p) {
 }
 export function filtersEqual(a, b) {
   const set = (x, y) => x.size === y.size && [...x].every((v) => y.has(v));
-  return set(a.sides, b.sides) && a.hood === b.hood && a.cuisine === b.cuisine && set(a.grades, b.grades) && a.liquor === b.liquor
+  return set(a.sides, b.sides) && a.hood === b.hood && a.cuisine === b.cuisine && a.minRanked === b.minRanked && a.liquor === b.liquor
     && a.dineIn === b.dineIn && a.hideChains === b.hideChains && a.includeVenues === b.includeVenues && a.city === b.city && a.bib === b.bib;
 }
 
@@ -535,21 +535,44 @@ const cmp = (x, y, desc) => (x === y ? null : desc ? x > y : x < y);
 const cmpS = (x, y, desc) => { const c = cmpStr(x, y); return c === 0 ? null : desc ? c > 0 : c < 0; };
 const nameLess = (a, b) => cmpStr(a.nameNFC, b.nameNFC) < 0;
 const collator = typeof Intl !== "undefined" ? new Intl.Collator("en-US", { sensitivity: "accent" }) : null;
-const tie = (a, b) => cmp(a.score ?? -1, b.score ?? -1, true) ?? nameLess(a, b);
+const tie = (a, b) => cmp(a.rank ?? Number.MAX_SAFE_INTEGER, b.rank ?? Number.MAX_SAFE_INTEGER, false) ?? nameLess(a, b);
 
-export const GRADES_ORDER = ["A", "B", "C", "D", "F"];
-export const BOARD_IDS = ["cleanest", "worst", "recentFails", "pests", "iconic", "honors", "oldest", "newest", "building", "sales"];
+// ------------------------------------------------------------------------------------------------ RankedScore (Board.swift, Place.swift RankCap)
+export const RANKED_SHORT = "Our Ranked score, from public records. Not an official City grade.";
+export const RANKED_PARTS = "inspection record (40%), years open (30%) and honors (30%)";
+export const RANKED_EXPLAINER = "Our 0–100 Ranked score, not an official City grade. It blends each place's City inspection record (40%, recent visits counting more), how long it has been open at its address (30%; a chain store's years count half) and hand-checked honors (30%: Michelin, James Beard, Chicago icons and the like), compared with other Chicago restaurants. A part we don't have counts as average. 85 means it ranks above 85% of Chicago restaurants. A failed latest inspection holds a place to 50, and a failed inspection or pest citation in the past year to 80.";
+export const RANKED_LIST_NOTE = "Ranked scores are ours, from public records, not official City grades.";
+/** RankedScore.meaning: a percentile, so 99 and 100 are "the top 1%" rather than "above 100% of them". */
+export const rankedMeaning = (s) => (s >= 99 ? `${s} puts this place in the top 1% of Chicago restaurants on the blend.`
+  : `${s} means this place ranks above ${s}% of Chicago restaurants on the blend.`);
+/** RankCap: what held a place's Ranked score down (the data's rankCap), only when it did. */
+export const RANK_CAPS = {
+  1: { limit: 50, note: "Held to 50 because its latest City inspection in our records failed." },
+  2: { limit: 80, note: "Held to 80 because of a failed inspection or a pest citation in the year before our records date." },
+};
+/** DataStore.surpriseFrom: the Ranked score "Surprise me" draws from (the top fifth). */
+export const SURPRISE_FROM = 80;
+/** FiltersView.rankedSteps: the Ranked score floors the filter offers. */
+export const RANKED_STEPS = [50, 75, 90];
+/** Theme.scoreBands: the chip's and the map's color bands, deepest for the highest (a green ramp, never red). */
+export const SCORE_BANDS = [[90, "#0B5E3B", "#FFFFFF"], [75, "#1F7A4D", "#FFFFFF"], [50, "#7DB88A", "#0B1D45"], [25, "#BEDCC3", "#0B1D45"], [0, "#E4EFE6", "#0B1D45"]];
+export const scoreBand = (s) => { const b = SCORE_BANDS.find((x) => s >= x[0]) || SCORE_BANDS[SCORE_BANDS.length - 1]; return { fill: b[1], text: b[2], from: b[0] }; };
+
+export const BOARD_IDS = ["top", "cleanest", "worst", "recentFails", "pests", "iconic", "honors", "oldest", "newest", "building", "sales"];
 export const BOARDS = {
+  top: { title: "Top Ranked", short: "Top Ranked", icon: "trophy",
+    eligible: (p) => p.rank != null,
+    before: (a, b) => cmp(a.rank, b.rank, false) ?? nameLess(a, b) },
   cleanest: { title: "Cleanest", short: "Cleanest", icon: "seal",
-    eligible: (p) => (p.visits ?? 0) >= 2 && p.score != null && !p.failedSince,
-    before: (a, b) => cmp(a.score, b.score, true) ?? cmp(a.visits ?? 0, b.visits ?? 0, true) ?? nameLess(a, b) },
-  worst: { title: "Lowest scores", short: "Lowest", icon: "warn", negative: true,
-    eligible: (p) => (p.visits ?? 0) >= 2 && p.score != null,
-    before: (a, b) => cmp(a.score, b.score, false) ?? cmp(a.fails ?? 0, b.fails ?? 0, true) ?? cmp(a.pests ?? 0, b.pests ?? 0, true) ?? nameLess(a, b) },
+    eligible: (p) => (p.visits ?? 0) >= 2 && p.insp != null && !p.failedSince,
+    before: (a, b) => cmp(a.insp, b.insp, true) ?? cmp(a.visits ?? 0, b.visits ?? 0, true) ?? nameLess(a, b) },
+  worst: { title: "Lowest inspection scores", short: "Lowest", icon: "warn", negative: true,
+    eligible: (p) => (p.visits ?? 0) >= 2 && p.insp != null,
+    before: (a, b) => cmp(a.insp, b.insp, false) ?? cmp(a.fails ?? 0, b.fails ?? 0, true) ?? cmp(a.pests ?? 0, b.pests ?? 0, true) ?? nameLess(a, b) },
   recentFails: { title: "Failed latest", short: "Failed latest", icon: "octagon", negative: true,
     // recent fails only, and never one the City has since passed
     eligible: (p, as) => p.lastResult === "Fail" && !p.passedSince && cmpStr(p.lastDate ?? "", as.failsFrom) >= 0,
-    before: (a, b) => cmpS(a.lastDate ?? "", b.lastDate ?? "", true) ?? cmp(a.score ?? 100, b.score ?? 100, false) ?? nameLess(a, b) },
+    before: (a, b) => cmpS(a.lastDate ?? "", b.lastDate ?? "", true) ?? cmp(a.insp ?? 100, b.insp ?? 100, false) ?? nameLess(a, b) },
   pests: { title: "Pest citations", short: "Pests", icon: "ant", negative: true,
     eligible: (p) => (p.pests ?? 0) > 0,
     before: (a, b) => cmp(a.pests ?? 0, b.pests ?? 0, true) ?? cmpS(a.lastDate ?? "", b.lastDate ?? "", true) ?? nameLess(a, b) },
@@ -579,7 +602,7 @@ export const BOARDS = {
     eligible: (p) => p.sales != null,
     before: (a, b) => cmp(a.sales, b.sales, true) ?? nameLess(a, b) },
 };
-for (const id of BOARD_IDS) { BOARDS[id].id = id; BOARDS[id].negative = !!BOARDS[id].negative; }
+for (const id of BOARD_IDS) { BOARDS[id].id = id; BOARDS[id].negative = !!BOARDS[id].negative; BOARDS[id].inspection = id === "cleanest" || BOARDS[id].negative; }
 
 /** Board.explainer(recordsThrough:) */
 export function explainer(id, recordsThrough) {
@@ -592,11 +615,13 @@ export function explainer(id, recordsThrough) {
   // only the negative boards' rows show results (Cleanest rows show neighborhood and cuisine)
   const rows = id === "worst" ? " Each row shows the latest City result in our records, and any newer City result from after our records date." : "";
   switch (id) {
+    case "top":
+      return RANKED_EXPLAINER;
     case "cleanest": case "worst":
-      return `Our 0–100 score, not an official City grade. Based on City of Chicago inspections from January 2023${through}: failed inspections, pest citations, serious food-safety violations, violations per visit, passes with conditions, and whether the last visit failed. Places need at least two inspections.${rows}`;
+      return `Our 0–100 inspection score, not an official City score. Based on City of Chicago inspections from January 2023${through}, with recent visits counting more: failed inspections, pest citations, serious food-safety violations, violations per visit, passes with conditions, and whether the last visit failed. Places need at least two inspections.${rows}`;
     case "recentFails":
       // the app hears of a newer result only from our data, which we update about weekly; never "as soon as the City posts"
-      return `Places whose most recent City of Chicago inspection on record${as} was a Fail${window}. A place leaves this list once our data shows a newer passing City result (we update the data about once a week). Many places pass a re-inspection within days. Tap a place to see the City's record for anything newer. The number on each row is our 0–100 score, not an official City score.`;
+      return `Places whose most recent City of Chicago inspection on record${as} was a Fail${window}. A place leaves this list once our data shows a newer passing City result (we update the data about once a week). Many places pass a re-inspection within days. Tap a place to see the City's record for anything newer. The number on each row is our 0–100 inspection score, not an official City score.`;
     case "pests":
       return "City of Chicago inspections since January 2023 whose citation describes rodents, insects or signs of them. Door gaps and missing pest-control logs aren't counted, and a citation repeated at the next visit counts once. A citation records what the inspector found that day; it may since have been corrected.";
     case "iconic":
@@ -624,8 +649,9 @@ export const NOTES = {
 /** Board.metric: the big number on the right of a row, and its label. `recordsYear` is Fmt.recordsYear. */
 export function metric(id, p, recordsYear) {
   switch (id) {
-    case "cleanest": case "worst": return [String(p.score ?? 0), "inspection score"];
-    case "recentFails": return [p.score != null ? String(p.score) : "—", "our score"];
+    case "top": return [String(p.ranked ?? 0), "Ranked score"];
+    case "cleanest": case "worst": return [String(p.insp ?? 0), "inspection score"];
+    case "recentFails": return [p.insp != null ? String(p.insp) : "—", "our inspection score"];
     case "pests": return [String(p.pests ?? 0), (p.pests ?? 0) === 1 ? "pest citation" : "pest citations"];
     case "iconic": return [String(roundAway(p.iconPts ?? 0)), "iconic points"];
     case "honors":
@@ -667,8 +693,9 @@ export function boardCount(data, id, filters) {
 // ------------------------------------------------------------------------------------------------ HomeCard (HomeView.swift)
 export const HOT_DOG_CUISINE = "Hot Dogs & Beef";
 export const HOME_CARDS = [
-  { id: "cleanest", title: "Cleanest Kitchens", sub: "Top inspection scores, graded A–F from City records", board: "cleanest", filters: {}, icon: "seal", signature: true },
-  { id: "hotDogs", title: "Hot Dogs & Beef", sub: "Chicago dogs and Italian beef, ranked by inspection score", board: "cleanest", filters: { cuisine: HOT_DOG_CUISINE }, icon: "hotdog", signature: true },
+  { id: "top", title: "Top Ranked", sub: "Our Ranked score: inspections, years open and honors", board: "top", filters: {}, icon: "trophy", signature: true, noCount: true },
+  { id: "cleanest", title: "Cleanest Kitchens", sub: "Top inspection scores, from City records", board: "cleanest", filters: {}, icon: "seal" },
+  { id: "hotDogs", title: "Hot Dogs & Beef", sub: "Chicago dogs and Italian beef, by Ranked score", board: "top", filters: { cuisine: HOT_DOG_CUISINE }, icon: "hotdog", signature: true },
   { id: "honors", title: "Michelin & Beard", sub: "Michelin stars, Bib Gourmands and James Beard honorees", board: "honors", filters: {}, icon: "rosette", signature: true },
   { id: "iconic", title: "Chicago Icons", sub: "Long-running institutions and honored kitchens", board: "iconic", filters: {}, icon: "star", signature: true, noCount: true },
   { id: "oldest", title: "Oldest Places", sub: "Opening years from histories and City records", board: "oldest", filters: {}, icon: "hourglass", noCount: true },
@@ -678,7 +705,7 @@ export const HOME_CARDS = [
   { id: "sales", title: "Top Sales", sub: "Highest yearly sales that were publicly reported", board: "sales", filters: {}, icon: "dollar" },
   { id: "nearMe", title: "Near Me", sub: "Everything around you, closest first", near: true, icon: "location", noCount: true },
   { id: "all", title: "All Restaurants", sub: "Search nearly every restaurant, café, bakery and tavern in the city", search: "chicago", icon: "fork", noCount: true },
-  { id: "illinois", title: "Rest of Illinois", sub: "Restaurants across the rest of the state. No grades outside Chicago.", search: "illinois", icon: "map" },
+  { id: "illinois", title: "Rest of Illinois", sub: "Restaurants across the rest of the state. Not ranked outside Chicago.", search: "illinois", icon: "map" },
 ];
 
 // ------------------------------------------------------------------------------------------------ DataLoader (DataStore.swift)
@@ -749,6 +776,8 @@ export function parseChicago(obj) {
   const chi = table(obj, "Chicago");
   const hoods = strList(chi.meta.hoods), sides = strList(chi.meta.sides), cuisines = strList(chi.meta.cuisines);
   const through = typeof chi.meta.records_through === "string" ? chi.meta.records_through : "";
+  // the Ranked score is on every Chicago screen: a file without it (one published before the score) isn't used
+  if (!("ranked" in chi.cols) || !("insp" in chi.cols)) throw new Error("The Chicago data couldn't be read.");
   const { s, i, d, b, ob, alt } = reader(chi.cols);
   const shared = sharedWords();
   const out = [];
@@ -769,9 +798,11 @@ export function parseChicago(obj) {
     p.newerResult = null; p.newerDate = null;
     const nr = s(row, "newerResult"), nd = s(row, "newerDate");
     if (nr != null && nd != null && cmpStr(nd, through) > 0) { p.newerResult = nr; p.newerDate = nd; }
-    p.score = i(row, "score");
-    const g = s(row, "grade");
-    p.grade = g != null && ["A", "B", "C", "D", "F"].includes(g) ? g : null;
+    // `score` and `grade` are the 1.0 app's inspection grade: this version shows the Ranked score and the newer inspection score
+    p.insp = i(row, "insp");
+    p.ranked = i(row, "ranked"); p.rank = i(row, "rank");
+    const cap = i(row, "rankCap");
+    p.rankCap = cap === 1 || cap === 2 ? cap : null;
     p.bldg = i(row, "bldg"); p.bldgClass = s(row, "bldgClass"); p.bldgExact = ob(row, "bldgExact");
     p.stars = i(row, "stars"); p.bib = b(row, "bib"); p.green = b(row, "green");
     p.jbf = s(row, "jbf"); p.honors = s(row, "honors"); p.icon = s(row, "icon"); p.iconPts = d(row, "iconPts");
@@ -829,7 +860,7 @@ function* illinoisSteps(obj, chunk) {
       cuisine: pick(cuisines, i(row, "cuisine")) ?? "American & Other", brand, chain: i(row, "chain") ?? 1, venue: b(row, "venue"),
       isChicago: false, web: webURL(s(row, "web")) };
     for (const k of ["dineIn", "liquor", "patio", "late", "since", "risk", "visits", "fails", "passCond", "violPer", "seriousPer", "pests",
-      "complaints", "lastDate", "lastResult", "score", "grade", "newerResult", "newerDate", "bldg", "bldgClass", "bldgExact", "stars", "jbf",
+      "complaints", "lastDate", "lastResult", "insp", "ranked", "rank", "rankCap", "newerResult", "newerDate", "bldg", "bldgClass", "bldgExact", "stars", "jbf",
       "honors", "icon", "iconPts", "sales", "salesYear", "salesLabel", "salesKind", "aka"]) p[k] = null;
     p.sinceFloor = false; p.sinceVerified = false; p.bib = false; p.green = false;
     const brandWords = shared(brand);
@@ -847,12 +878,12 @@ function* illinoisSteps(obj, chunk) {
     rows: il.rows.length, meta: il.meta };
 }
 
-/** Best score first, then name, then file order (DataLoader.bestFirst). */
+/** Best Ranked score first, then name, then file order (DataLoader.bestFirst). */
 export function bestFirst(list) {
   const nm = list.map((p) => nfc(foldName(p.name)));
   const idx = list.map((_, i) => i);
   idx.sort((a, b) => {
-    const sa = list[a].score ?? -1, sb = list[b].score ?? -1;
+    const sa = list[a].ranked ?? -1, sb = list[b].ranked ?? -1;
     if (sa !== sb) return sa > sb ? -1 : 1;
     const c = cmpStr(nm[a], nm[b]);
     return c !== 0 ? c : a - b;
@@ -1006,7 +1037,7 @@ function box(pt, m) {
   const dLat = m / 111000, dLon = m / (111000 * Math.max(0.1, Math.cos(pt[0] * Math.PI / 180)));
   return { minLat: pt[0] - dLat, maxLat: pt[0] + dLat, minLon: pt[1] - dLon, maxLon: pt[1] + dLon };
 }
-/** Finder.near: matches in Chicago and the rest of Illinois within 50 miles, closest first. A Chicago-only filter (grade,
+/** Finder.near: matches in Chicago and the rest of Illinois within 50 miles, closest first. A Chicago-only filter (Ranked score,
  *  side, neighborhood, licenses) leaves out the rest of Illinois; a town filter leaves out Chicago. */
 export function near(data, text, filters, pt, limit = SEARCH_LIMIT) {
   text = trimWS(text);
@@ -1062,8 +1093,8 @@ const PRIVATE = [
 const PRIVATE_RE = new RegExp(PRIVATE, "iu");
 /** Finder.isPrivateDining: caterers, private clubs, churches, corporate and campus dining. */
 export const isPrivateDining = (p) => [p.name, p.aka].some((s) => s != null && PRIVATE_RE.test(s));
-/** DataStore.surpriseCandidates: A-grade independents the public can walk into, and none the City has failed since. */
-export const surpriseCandidates = (chicago) => chicago.filter((p) => p.grade === "A" && !p.venue && !p.isChain && p.lat != null && !isPrivateDining(p) && !p.failedSince);
+/** DataStore.surpriseCandidates: top-ranked independents the public can walk into, and none the City has failed since. */
+export const surpriseCandidates = (chicago) => chicago.filter((p) => (p.ranked ?? 0) >= SURPRISE_FROM && !p.venue && !p.isChain && p.lat != null && !isPrivateDining(p) && !p.failedSince);
 
 // ------------------------------------------------------------------------------------------------ place page pieces (PlaceDetailView.swift)
 // URLComponents' query encoding: RFC 3986 query characters stay, except & = (and + by hand); everything else is %XX UTF-8.
@@ -1128,12 +1159,34 @@ export function badges(p, hideMichelin = false) {
   if (p.isChain) out.push([`Chain · ${p.chain}`, "plain"]);
   return out;
 }
+/** DataStore.rankedOf: Chicago restaurants with a Ranked score position ("#212 of 7,780 Chicago restaurants"). */
+export const rankedOf = (chicago) => chicago.reduce((n, p) => n + (p.rank == null ? 0 : 1), 0);
+/** PlacePage.yearsPart: the Ranked score's years-open part in words. `recordsYear` is Fmt.recordsYear. */
+export function yearsPart(p, recordsYear) {
+  if (p.since == null) return "Opening year unknown: counts as average";
+  const now = recordsYear ?? new Date().getFullYear();
+  const years = Math.max(now - p.since, 0);
+  const from = p.sinceFloor ? "City records since 2002 or earlier" : p.sinceVerified ? `opened ${p.since}` : `first City record ${p.since}`;
+  return `${p.sinceFloor ? `${years}+` : `${years}`} ${years === 1 ? "year" : "years"} (${from})` + (p.isChain ? "; a chain store, so it counts half" : "");
+}
+/** PlacePage.honorsPart: the kinds of hand-checked honor behind the Ranked score's honors part. */
+export function honorsPart(p) {
+  const kinds = [];
+  if (p.stars != null && p.stars > 0) kinds.push(`${p.stars} Michelin star${p.stars === 1 ? "" : "s"}`);
+  if (p.jbf != null) kinds.push(p.jbf.includes("America's Classic") ? "James Beard America's Classic" : "James Beard");
+  if (p.bib) kinds.push("Bib Gourmand");
+  if (p.green) kinds.push("Michelin Green Star");
+  if (p.icon != null) kinds.push("Chicago icon");
+  if (p.honors != null) { const k = Fmt.items(p.honors).length; kinds.push(k === 1 ? "1 other honor" : `${k} other honors`); }
+  if (p.sales != null) kinds.push("published sales");
+  return kinds.length ? kinds.join(", ") : "None on our hand-checked lists";
+}
 /** PlaceShare.message: the text that goes with the place's link (navigator.share's url). No Apple Maps link and no street
  *  address, which Messages turns into a Maps card or link; Directions is its own button. */
 export function shareText(p) {
   const parts = [`${p.name}, ${p.city}, on Chicago Restaurants: Ranked`];
-  if (p.grade != null && p.score != null) {
-    parts.push(`Inspection grade ${p.grade} (${p.score}/100), from City of Chicago inspection records. Grade by Chicago Restaurants: Ranked, not an official city grade.`);
+  if (p.ranked != null) {
+    parts.push(`Ranked score ${p.ranked}/100, from public records: City of Chicago inspections and licenses, and hand-checked honors. Score by Chicago Restaurants: Ranked, not an official city grade.`);
   }
   return parts.join("\n");
 }
