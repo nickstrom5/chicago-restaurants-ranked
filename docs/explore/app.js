@@ -1097,7 +1097,7 @@ function viewPlace(view, route) {
       : s ? "Saved for this visit only (this browser blocks site storage)" : "Removed for this visit only (this browser blocks site storage)");
   };
   $("#share").onclick = async () => {
-    const url = location.href;
+    const url = location.origin + location.pathname + placeHref(p);   // the place's own route, whatever else the address bar holds
     if (navigator.share) { try { await navigator.share({ title: p.name, text: L.shareText(p), url }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
     try { await navigator.clipboard.writeText(url); toast("Link copied"); }
     catch {        // no clipboard access: show the link to copy by hand

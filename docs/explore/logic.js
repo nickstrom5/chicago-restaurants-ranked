@@ -1128,13 +1128,12 @@ export function badges(p, hideMichelin = false) {
   if (p.isChain) out.push([`Chain · ${p.chain}`, "plain"]);
   return out;
 }
-/** PlacePage.shareText */
+/** PlaceShare.message: the text that goes with the place's link (navigator.share's url). No Apple Maps link and no street
+ *  address, which Messages turns into a Maps card or link; Directions is its own button. */
 export function shareText(p) {
-  const parts = [`${p.name}, ${p.addr != null ? `${p.addr}, ` : ""}${p.city}`];
+  const parts = [`${p.name}, ${p.city}, on Chicago Restaurants: Ranked`];
   if (p.grade != null && p.score != null) {
     parts.push(`Inspection grade ${p.grade} (${p.score}/100), from City of Chicago inspection records. Grade by Chicago Restaurants: Ranked, not an official city grade.`);
   }
-  const link = mapsLink(p);
-  if (link) parts.push(link);
   return parts.join("\n");
 }

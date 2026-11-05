@@ -253,6 +253,20 @@ function wording() {
   const hits = [...web.matchAll(over)].map((m) => web.slice(Math.max(0, m.index - 30), m.index + 60).replace(/\s+/g, " "));
   check(!hits.length, "claims every restaurant (say 'nearly every')", [], hits);
   check(!/nickstrom5\.github\.io|\/chicago-restaurants-ranked\//.test(web), "names the old address or the old path prefix", false, true);
+  // Share: the place's own route (the app's PlaceShare.webLink) with PlaceShare.message's text, never a map link or a street
+  // address (Messages makes a Maps card of either). The expected text is the app's own test (BoardRulesTests).
+  check(swift("Views/PlaceDetailView.swift").includes(", on Chicago Restaurants: Ranked"), "PlaceShare.message no longer names the app: the web copy may be stale", "", "");
+  const goat = { name: "Girl & the Goat", addr: "809 W Randolph St", city: "Chicago", lat: 41.884, lon: -87.648, grade: "A", score: 93 };
+  const lines = L.shareText(goat).split("\n");
+  check(lines.length === 2 && lines[0] === "Girl & the Goat, Chicago, on Chicago Restaurants: Ranked" && lines[1].startsWith("Inspection grade A (93/100)"),
+    "shareText says what PlaceShare.message says", ["Girl & the Goat, Chicago, on Chicago Restaurants: Ranked", "Inspection grade A (93/100), …"], lines);
+  const lou = { name: "Lou's + Co", addr: "1 Main St", city: "Oak Park", lat: 41.88, lon: -87.78, grade: null, score: null };
+  check(L.shareText(lou) === "Lou's + Co, Oak Park, on Chicago Restaurants: Ranked", "shareText outside Chicago", "Lou's + Co, Oak Park, on Chicago Restaurants: Ranked", L.shareText(lou));
+  for (const p of [goat, lou]) {
+    const t = L.shareText(p);
+    check(!/maps\.apple\.com|google\.|goo\.gl|maps\.app/i.test(t) && !t.includes(p.addr), `shareText for ${p.name} has a map link or the street address`, "neither", t);
+  }
+  check(web.includes("const url = location.origin + location.pathname + placeHref(p);"), "Share's url isn't the place's own route", "placeHref(p)", "(something else)");
 }
 
 // ------------------------------------------------------------------------------------------------ the rest of Illinois in slices

@@ -40,6 +40,8 @@ const MUTANTS = [
   ["app.js", "Closest matches row note reworded", "const CLOSEST_NOTE = \"Closest match, not an exact match\";", "const CLOSEST_NOTE = \"Closest match\";"],
   ["logic.js", "the Bib Gourmand filter keeps everything", "if (f.bib && !p.bib) return false;", ""],
   ["logic.js", "the Bib Gourmand filter keeps starred places too", "if (f.bib && !p.bib) return false;", "if (f.bib && !p.bib && !(p.stars > 0)) return false;"],
+  ["logic.js", "Share sends an Apple Maps link again", "  return parts.join(\"\\n\");\n}", "  if (mapsLink(p)) parts.push(mapsLink(p));\n  return parts.join(\"\\n\");\n}"],
+  ["app.js", "Share sends the address bar, not the place's route", "const url = location.origin + location.pathname + placeHref(p);", "const url = location.href;"],
   ["logic.js", "read in slices, the rest of Illinois skips a row after each pause", "if (chunk > 0 && ++k % chunk === 0) yield;", "if (chunk > 0 && ++k % chunk === 0) { yield; continue; }"],
 ];
 
