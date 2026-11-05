@@ -48,6 +48,9 @@ const OWNED = ["lists", "neighborhoods", "cuisines"];
 const THIN = 20;              // graded places an area or cuisine page needs to be indexed
 const ROWS = 100;             // rows on a page; the web version has the rest (it shows 100, then Show more)
 const CITY_DATA = "https://data.cityofchicago.org/Health-Human-Services/Food-Inspections/4ijn-s7e5";
+// the App Store listing (live since 2026-11-02): the Smart App Banner and the footer link, as on the root pages
+const APP_ID = "6816931379";
+const APP_STORE = `https://apps.apple.com/app/id${APP_ID}`;
 const OG_ALT = "Chicago Restaurants: Ranked app icon, a Chicago hot dog on a sky-blue Chicago-flag star, beside the words: Chicago Restaurants: Ranked. Chicago restaurants, graded A–F and mapped.";
 // the guide pages' policy, without 'unsafe-inline' (no inline styles here); connect-src 'self' lets tools that read
 // robots.txt from the page (Lighthouse) do so
@@ -122,6 +125,13 @@ const badgesHTML = (p, hideMichelin) => {
 const AREA_THE = new Set(["Loop", "Near North Side", "Near South Side", "Near West Side", "Lower West Side", "East Side"]);
 const areaIn = (name) => (AREA_THE.has(name) ? `the ${name}` : name);
 const ldJSON = (o) => JSON.stringify(o, null, 1).replace(/</g, "\\u003c");
+/** A ranking's rows as schema.org ItemList, names and street addresses only: no grade, score, rating or review markup
+ *  (verify.py fails any), and no per-place URL (each place lives at a #/place route in the web version, one URL to a
+ *  crawler). On one line: a hundred rows indented would add about half again to the JSON. */
+const listLD = (name, url, rows) => JSON.stringify({ "@context": "https://schema.org", "@type": "ItemList", name, url,
+  numberOfItems: rows.length, itemListElement: rows.map((p, i) => ({ "@type": "ListItem", position: i + 1,
+    item: { "@type": "FoodEstablishment", name: p.name, ...(p.addr ? { address: { "@type": "PostalAddress", streetAddress: p.addr,
+      addressLocality: "Chicago", addressRegion: "IL", addressCountry: "US" } } : {}) } })) }).replace(/</g, "\\u003c");
 const FORK = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3v6.5a2.2 2.2 0 0 0 2.2 2.2h0a2.2 2.2 0 0 0 2.2-2.2V3M8.7 3v18M17.5 21V3c-2.3 1.4-3.3 4.2-3.3 7.6V13h3.3"/></svg>`;
 
 function gradeCounts(list) {
@@ -210,7 +220,7 @@ function sameYear(id, list, rows) {
 }
 
 // ------------------------------------------------------------------------------------------------ page frame
-function page({ path, title, desc, index, crumbs, h1, kicker, body, generatedNote }) {
+function page({ path, title, desc, index, crumbs, h1, kicker, body, generatedNote, ld }) {
   const up = "../".repeat(path.split("/").filter(Boolean).length);
   const url = BASE + path;
   const crumbLD = { "@context": "https://schema.org", "@type": "BreadcrumbList",
@@ -228,6 +238,7 @@ function page({ path, title, desc, index, crumbs, h1, kicker, body, generatedNot
 <link rel="canonical" href="${url}">
 <meta name="robots" content="${index ? "index,follow,max-image-preview:large" : "noindex,follow"}">
 <meta name="theme-color" content="#0E3386">
+<meta name="apple-itunes-app" content="app-id=${APP_ID}">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${url}">
@@ -252,7 +263,7 @@ function page({ path, title, desc, index, crumbs, h1, kicker, body, generatedNot
 <script type="application/ld+json">
 ${ldJSON(crumbLD)}
 </script>
-</head>
+${ld ? `<script type="application/ld+json">\n${ld}\n</script>\n` : ""}</head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="site">
@@ -280,6 +291,7 @@ ${body}
     <nav aria-label="Footer">
       <a href="${up}">Chicago Restaurants: Ranked home</a>
       <a href="${up}explore/">Search on the web</a>
+      <a href="${APP_STORE}" rel="noopener">Get the iPhone and iPad app</a>
       <a href="${up}lists/">Chicago restaurant rankings</a>
       <a href="${up}neighborhoods/">Grades by neighborhood</a>
       <a href="${up}cuisines/">Grades by cuisine</a>
@@ -522,7 +534,7 @@ ${b.id === "honors" ? `    <p class="tm">${esc(TRADEMARKS)}</p>\n` : ""}${aboutB
         : [" Shown with our A–F grades, not official City grades.", " Our A–F grades, not official City grades.", " Shown with our A–F grades.", " With our A–F grades.", ""])
         .map((x) => `${b.sub}: ${some} with City records through ${longDate(rt)}.${x}`)),
       crumbs: [home, { name: "Rankings", path: "lists/" }, { name: b.title, path }],
-      h1: b.title, kicker: "Chicago restaurant rankings", body });
+      h1: b.title, kicker: "Chicago restaurant rankings", body, ld: listLD(b.title, BASE + path, shown) });
   }
   {
     const up = "../";

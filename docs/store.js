@@ -1,7 +1,7 @@
 // App Store link for the home page (a file, not an inline script, so the pages' Content-Security-Policy can say
-// script-src 'self'). Once the listing is live, paste its URL here (looks like https://apps.apple.com/app/id123456789).
-// Every [data-store-btn] then points at the App Store and its label and note switch automatically.
-var APP_STORE_URL = "";
+// script-src 'self'). The app went live on 2026-11-02, so index.html's [data-store-btn] buttons now carry the link and
+// label in the HTML too (they work without this script, for crawlers and link previews); change the URL in both places.
+var APP_STORE_URL = "https://apps.apple.com/app/id6816931379";
 if (APP_STORE_URL) {
   document.querySelectorAll("[data-store-btn]").forEach(function (b) { b.href = APP_STORE_URL; b.rel = "noopener"; });
   document.querySelectorAll("[data-store-label]").forEach(function (l) { l.textContent = "Download on the App Store"; });

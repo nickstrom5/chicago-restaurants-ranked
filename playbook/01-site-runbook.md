@@ -316,6 +316,16 @@ argument), copy only `og.png` into `docs/`, and check `git -C chi-eats status --
 
 ### After Apple approves
 
+**Status 2026-11-05: live and pushed.** Version 1.0 went live on the US App Store on 2026-11-02, and steps 1–4 below
+were pushed on 2026-11-05 with Nick's OK: the banner and `store.js` URL, the home description ("Where to eat in Chicago,
+checked against the record: …", 151 characters; the title now reads "Chicago Restaurants: Ranked | Food App, Inspections &
+Grades", 60, since the app is out), `downloadUrl`/`installUrl`/`sameAs`/`datePublished` in the `MobileApplication`, and the
+README link. The home page's store buttons also carry the link and label in the HTML (they no longer depend on `store.js`).
+Beyond the list: the Smart App Banner and a footer "Get the iPhone and iPad app" link on every page (the root pages,
+`explore/`'s `<head>` only, and the data pages through `static_pages.mjs`), a "where to eat" line of deep links in the home
+page's rankings section, and an `ItemList` of the rows on each `lists/` page (names and street addresses only). Step 5 was
+checked (the listing URL opens Chicago Restaurants: Ranked); step 6's iPhone check in Safari is Nick's.
+
 The App Store Connect record exists: Apple ID **6816931379**. While the app is in review, leave the "Coming soon to the
 App Store" buttons and the commented-out banner as they are. Once Apple approves the app **and it is live on the store**
 (a banner or button pointing at a page that isn't live yet looks broken), with Nick's OK:
