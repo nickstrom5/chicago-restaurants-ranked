@@ -3,15 +3,23 @@ https://chicago.eatsranked.com/
 
 manifest.json and the chicago-*.json and illinois-*.json files it lists are the data the Chicago Restaurants: Ranked app shows. The attributions and licenses below are the ones the app shows on its About screen.
 
+In chicago-*.json, version 1.0 of the app shows the score and grade columns: an inspection score and A–F grade from City inspections alone. Later versions show the Ranked score described below (ranked, rank, rankCap) and the inspection score with recent visits counting more (insp).
+
 Independent app
 ---------------
 Chicago Restaurants: Ranked (“Chi Ranked”) is an independent app by Nicholas Soderstrom. It is not affiliated with, endorsed by or operated by the City of Chicago, the Chicago Department of Public Health or Cook County.
 
-Our grades
-----------
-The 0–100 inspection score and A–F grade are calculated by this app from City of Chicago food inspection records since January 2023. They are our assessment, not official City of Chicago grades. The City reports each inspection as Pass, Pass w/ Conditions or Fail and does not issue letter grades. An inspection describes conditions on the day of the visit.
+How we rank
+-----------
+Each Chicago place’s Ranked score, 0–100, is calculated by this app from public records. It is our assessment, not an official City of Chicago grade. The City reports each inspection as Pass, Pass w/ Conditions or Fail and does not issue grades or scores.
 
-The score weighs failed inspections, pest citations, serious food-safety violations, violations per visit, passes with conditions, and whether the last visit failed. Places with few inspections are pulled toward the city average. An F needs a failed inspection or pests; an A needs no failures.
+The score blends three parts, each compared with other Chicago restaurants: inspection record (40%), years open (30%) and honors (30%). A part we don’t have counts as average, and inspections alone never rank a place: it needs an opening year or an honor. The score is where the blend falls among Chicago restaurants: 85 means it ranks above 85% of them.
+
+Inspection record: our 0–100 inspection score from City of Chicago food inspections since January 2023. It weighs failed inspections, pest citations, serious food-safety violations, violations per visit, passes with conditions, and whether the last visit failed. Recent visits count more (one a year old counts half), and places with few inspections are pulled toward the city average. An inspection describes conditions on the day of the visit.
+
+Years open: how long the place has been at its address, from verified histories or the earliest City license or inspection record. A chain store’s (5+ Chicago locations) count half. Honors: Michelin stars, Bib Gourmand and Green Star, James Beard awards and America’s Classics, our hand-checked list of Chicago icons, other hand-checked honors and published sales; the strongest counts most.
+
+Inspections still cap the score: a failed latest inspection holds a place to 50, and a failed inspection or pest citation in the past year to 80.
 
 City of Chicago
 ---------------
