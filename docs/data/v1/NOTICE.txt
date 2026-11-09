@@ -35,9 +35,9 @@ Property values are estimates for the whole property at the address. Each one is
 
 Overture Maps Foundation
 ------------------------
-Restaurant websites, and the directory of places elsewhere in Illinois, come from Overture Maps Foundation places data (overturemaps.org), release 2026-09-23.0, filtered and reformatted for this app.
+Restaurant websites, and the directory of places elsewhere in Illinois, come from Overture Maps Foundation places data (overturemaps.org), release 2026-10-21.0, filtered and reformatted for this app.
 
-• Data from Meta, Microsoft, PinMeTo, Krick, RenderSEO, DAC and BrightQuery. Available under CDLA Permissive 2.0.
+• Data from Meta, Microsoft, PinMeTo, Krick, RenderSEO, DAC, BrightQuery, Birdeye, Uberall and OpenTravel Alliance. Available under CDLA Permissive 2.0.
 • Data from Foursquare. Copyright 2024 Foursquare Labs, Inc. All rights reserved. Available under Apache 2.0. Foursquare data was transformed to the Overture schema. Changed: 2026-03-18. This app further filtered and reformatted it. See the Foursquare OS Places NOTICE below.
 • Data from AllThePlaces. Available under CC0 1.0.
 
