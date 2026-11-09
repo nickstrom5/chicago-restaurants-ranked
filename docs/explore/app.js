@@ -1206,7 +1206,7 @@ function viewAbout(view) {
       <p class="fine">Property values are estimates for the whole property at the address. Each one is the Cook County Assessor’s 2025 assessed value, as certified by the Cook County Board of Review, divided by the Assessor’s level of assessment for its property class. The source is Cook County Open Data (datacatalog.cookcountyil.gov). These are not sale prices or the value of the restaurant business, and they have been modified from the original source. Cook County makes no warranty as to the data’s accuracy, completeness or timeliness, and does not endorse this app.</p></section>
     <section><h2>Overture Maps Foundation</h2>
       <p class="fine">Restaurant websites, and the directory of places elsewhere in Illinois, come from Overture Maps Foundation places data (overturemaps.org)${release}, filtered and reformatted for this app.</p>
-      <ul class="fine"><li>Data from Meta, Microsoft, PinMeTo, Krick, RenderSEO, DAC and BrightQuery. Available under CDLA Permissive 2.0.</li>
+      <ul class="fine"><li>Data from Meta, Microsoft, PinMeTo, Krick, RenderSEO, DAC, BrightQuery, Birdeye, Uberall and OpenTravel Alliance. Available under CDLA Permissive 2.0.</li>
         <li>Data from Foursquare. Copyright 2024 Foursquare Labs, Inc. All rights reserved. Available under Apache 2.0. Foursquare data was transformed to the Overture schema. Changed: 2026-03-18. This app further filtered and reformatted it. See the NOTICE under Licenses.</li>
         <li>Data from AllThePlaces. Available under CC0 1.0.</li></ul></section>
     <section><h2>Honors and published figures</h2>

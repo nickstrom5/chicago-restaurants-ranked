@@ -259,6 +259,8 @@ function wording() {
     ["Views/SavedAndAbout.swift", "The score blends three parts, each compared with other Chicago restaurants: inspection record (40%), years open (30%) and honors (30%)."],
     ["Views/SavedAndAbout.swift", "Inspections still cap the score: a failed latest inspection holds a place to 50, and a failed inspection or pest citation in the past year to 80."],
     ["Views/SavedAndAbout.swift", "Nearly every restaurant, bakery, café and tavern the City of Chicago inspects, ranked on public records"],
+    // Overture's Places attribution (docs.overturemaps.org/attribution), as the app's About and NOTICE.txt (publish_data.py ABOUT) say it
+    ["Views/SavedAndAbout.swift", "Data from Meta, Microsoft, PinMeTo, Krick, RenderSEO, DAC, BrightQuery, Birdeye, Uberall and OpenTravel Alliance. Available under CDLA Permissive 2.0."],
   ];
   for (const [f, s, w = s] of pairs) {      // [Swift file, its words, the web's spelling when it differs (HTML)]
     check(swift(f).includes(s), `${f} no longer says ${JSON.stringify(s)}: the web copy may be stale`, s, "(not in the Swift file)");
