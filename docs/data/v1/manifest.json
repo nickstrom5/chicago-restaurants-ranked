@@ -1,27 +1,27 @@
 {
  "schema": 1,
- "version": "2026-11-01.1",
- "records_through": "2026-11-01",
- "published": "2026-11-09T01:05:16Z",
+ "version": "2026-11-02.1",
+ "records_through": "2026-11-02",
+ "published": "2026-11-10T02:43:45Z",
  "min_app_build": 1,
  "files": {
   "chicago": {
-   "path": "chicago-cf960b2bd7c0.json",
-   "sha256": "cf960b2bd7c09eb642de6ac54a38294e7f2a14f2430ad2536d20ebdd5a069270",
-   "bytes": 2492673,
-   "rows": 8363
+   "path": "chicago-21ed92679165.json",
+   "sha256": "21ed92679165f3f158d4ed3bcc7d6837eca98c0626b997d6a315986c0b4d8025",
+   "bytes": 2493414,
+   "rows": 8365
   },
   "illinois": {
-   "path": "illinois-98a6e23ad19d.json",
-   "sha256": "98a6e23ad19d84ec7647b1d982f7fc97338544b88f0d9e85b1e5195a5d6b0293",
-   "bytes": 2021101,
+   "path": "illinois-83dd7227ecf2.json",
+   "sha256": "83dd7227ecf2bf39c7d6c1fbb66ada6cbe6c8e4fcb057e923af5a56819399beb",
+   "bytes": 2021330,
    "rows": 18432
   }
  },
  "counts": {
-  "places": 8363,
-  "restaurants": 7825,
-  "graded": 7657,
+  "places": 8365,
+  "restaurants": 7826,
+  "graded": 7660,
   "illinois": 17985,
   "towns": 929
  }
